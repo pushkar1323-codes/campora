@@ -1,0 +1,33 @@
+<footer class="footer-campora text-light py-5 mt-5">
+    <div class="container">
+        <div class="row gy-4">
+            <div class="col-md-5">
+                <h5 class="mb-2 d-flex align-items-center gap-2">
+                    <i data-lucide="graduation-cap" style="width:22px;height:22px;"></i>
+                    CAMPORA
+                </h5>
+                <p class="mb-0 text-secondary small">
+                    Campora is a modern web-based College Admission &amp; Student Enquiry Portal —
+                    connecting students with the right future.
+                </p>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-uppercase small text-secondary mb-3">Quick Links</h6>
+                <ul class="list-unstyled small">
+                    <li class="mb-2"><a href="{% url 'core:home' %}" class="text-light text-decoration-none">Home</a></li>
+                    <li class="mb-2"><a href="{% url 'core:about' %}" class="text-light text-decoration-none">About</a></li>
+                    <li class="mb-2"><a href="{% url 'core:courses' %}" class="text-light text-decoration-none">Courses</a></li>
+                    <li class="mb-2"><a href="{% url 'core:contact' %}" class="text-light text-decoration-none">Contact</a></li>
+                </ul>
+            </div>
+            <div class="col-md-3">
+                <h6 class="text-uppercase small text-secondary mb-3">Developed By</h6>
+                <p class="small mb-0">Pushkar Srivastava</p>
+            </div>
+        </div>
+        <hr class="border-secondary mt-4 mb-3">
+        <p class="mb-0 small text-secondary text-center">
+            &copy; {% now "Y" %} Campora. All Rights Reserved.
+        </p>
+    </div>
+</footer>

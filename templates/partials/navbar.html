@@ -1,0 +1,36 @@
+{% load static %}
+<nav class="navbar navbar-expand-lg navbar-dark navbar-campora sticky-top shadow-sm">
+    <div class="container">
+        <a class="navbar-brand" href="{% url 'core:home' %}">
+            <i data-lucide="graduation-cap" style="width:28px;height:28px;"></i>
+            <span>
+                CAMPORA
+                <span class="brand-tagline">Connecting Students with the Right Future</span>
+            </span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#mainNavbar" aria-controls="mainNavbar"
+                aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="mainNavbar">
+            <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'core:home' %}">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'core:about' %}">About</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'core:courses' %}">Courses</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'core:contact' %}">Contact</a>
+                </li>
+                <li class="nav-item ms-lg-2">
+                    <a class="btn btn-accent btn-sm px-3" href="{% url 'core:contact' %}">Apply Now</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

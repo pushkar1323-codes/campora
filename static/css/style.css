@@ -1,0 +1,138 @@
+/* Campora – College Admission & Student Enquiry Portal
+   Global styles
+
+   Brand palette (see BRANDING spec):
+   Primary   #2563EB
+   Secondary #FFFFFF
+   Accent    #10B981
+   Background #F8FAFC
+   Text      #1F2937
+   Error     #DC2626
+   Warning   #F59E0B
+   Success   #16A34A
+
+   Typography: Headings = Poppins, Body = Inter
+*/
+
+:root {
+    --brand-primary: #2563EB;
+    --brand-secondary: #FFFFFF;
+    --brand-accent: #10B981;
+    --brand-bg: #F8FAFC;
+    --brand-text: #1F2937;
+    --brand-error: #DC2626;
+    --brand-warning: #F59E0B;
+    --brand-success: #16A34A;
+
+    --font-heading: 'Poppins', sans-serif;
+    --font-body: 'Inter', sans-serif;
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-size: 16px;
+    font-family: var(--font-body);
+    color: var(--brand-text);
+    background-color: var(--brand-bg);
+}
+
+h1, h2, h3, h4, h5, h6,
+.navbar-brand,
+.campora-heading {
+    font-family: var(--font-heading);
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+/* Navbar */
+.navbar-campora {
+    background-color: var(--brand-primary) !important;
+}
+
+.navbar-brand {
+    letter-spacing: 0.01em;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.navbar-brand .brand-tagline {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 400;
+    opacity: 0.85;
+    letter-spacing: 0.01em;
+}
+
+/* Buttons: rounded, soft shadow, smooth hover per design system */
+.btn {
+    border-radius: 0.5rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+.btn-primary {
+    background-color: var(--brand-primary);
+    border-color: var(--brand-primary);
+}
+.btn-primary:hover {
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
+}
+.btn-accent {
+    background-color: var(--brand-accent);
+    border-color: var(--brand-accent);
+    color: #fff;
+}
+.btn-accent:hover {
+    background-color: #0e9f6e;
+    border-color: #0e9f6e;
+    color: #fff;
+}
+
+/* Cards: rounded, soft elevation, uniform padding */
+.card {
+    border: none;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(31, 41, 55, 0.08), 0 1px 2px rgba(31, 41, 55, 0.06);
+}
+.card-body {
+    padding: 1.5rem;
+}
+
+section {
+    padding: 3rem 0;
+}
+
+.bg-section-light {
+    background-color: var(--brand-bg);
+}
+
+/* Footer */
+.footer-campora {
+    background-color: #111827;
+}
+
+/* Empty states / loading placeholders (used across dashboards in later phases) */
+.campora-empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6b7280;
+}
+.campora-empty-state i {
+    font-size: 2.5rem;
+    color: #9ca3af;
+    margin-bottom: 0.75rem;
+}
