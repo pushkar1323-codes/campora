@@ -17,6 +17,10 @@ env/
 # Environment variables
 .env
 
+# Local smoke-test scratch files (never meant to be committed)
+config/test_settings_override.py
+db_smoketest.sqlite3
+
 # IDE
 .vscode/
 .idea/

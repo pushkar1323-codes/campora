@@ -25,9 +25,16 @@ technical architecture — only user-facing branding is "Campora"._
 Implemented so far:
 - Project foundation: Django project + 5 modular apps (`core`, `accounts`,
   `admissions`, `courses`, `dashboard`)
+- Campora branding: navbar, footer, admin site, design system
 - Bootstrap 5 responsive base template with sticky navbar and footer
 - Static/media file configuration
 - Local MySQL database configuration via environment variables
+- **Database models**: `Course` (courses app) and `Enquiry` (admissions app)
+  with FK relationship, soft-delete support (via a custom manager), field
+  validators, and indexes — see `DATABASE_DESIGN.docx`
+- Django admin registered for both models: search, filters, soft-delete
+  actions
+- Idempotent sample data seeding via `python manage.py seed_data`
 
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
 Public website content, Admission Enquiry form, CRUD, Search/Filter,
@@ -44,10 +51,10 @@ color palette defined in `static/css/style.css`.
 ```
 college_admission/
 ├── accounts/         # Authentication & staff management
-├── admissions/        # Admission enquiry CRUD
-├── courses/          # Course management
+├── admissions/        # Admission enquiry CRUD (Enquiry model)
+├── courses/          # Course management (Course model)
 ├── dashboard/         # Analytics & reports
-├── core/              # Public website (Home, About, Contact)
+├── core/              # Public website (Home, About, Contact) + seed_data command
 ├── config/            # Django project settings, root URLs, WSGI/ASGI
 ├── templates/          # Base template + partials (navbar, footer, messages)
 ├── static/            # css, js, images
@@ -82,10 +89,20 @@ college_admission/
    ```
    python manage.py migrate
    ```
-7. Start the development server:
+7. (Optional) Seed sample courses and enquiries for local development:
+   ```
+   python manage.py seed_data
+   ```
+8. Create an admin/staff account to access the Django admin:
+   ```
+   python manage.py createsuperuser
+   ```
+9. Start the development server:
    ```
    python manage.py runserver
    ```
+   Visit `http://127.0.0.1:8000/admin/` and log in to manage Courses and
+   Enquiries.
 
 ## Environment Variables
 
@@ -113,13 +130,16 @@ update and export enquiries via the dashboard (Phases 5–11).
 Planned for Phases 13–14: EC2 + Gunicorn + Nginx + Amazon RDS + EBS + S3.
 Not yet implemented.
 
-## Testing Checklist (this phase)
+## Testing Checklist
 
-- [x] `python manage.py check` passes with no issues
-- [x] Static files collect successfully (`collectstatic`)
-- [x] All routes (`/`, `/about/`, `/courses/`, `/contact/`, `/admin/`) return
-      correct HTTP responses
-- [x] Base template renders navbar, footer and messages correctly
+- [x] Phase 1: `python manage.py check` passes, static files collect, all
+      routes return correct HTTP responses, base template renders correctly
+- [x] Phase 2: Migrations apply cleanly (`courses.0001_initial`,
+      `admissions.0001_initial`); `seed_data` command is idempotent; model
+      validators correctly reject invalid mobile numbers, out-of-range
+      percentages, and past admission years; soft-delete manager correctly
+      excludes deleted records by default; Django admin verified end-to-end
+      (login, Course list, Enquiry list including soft-deleted rows)
 - [ ] CRUD, Search, Filters, Authentication, full Dashboard — not yet built
       (future phases)
 
