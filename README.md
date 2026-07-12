@@ -35,6 +35,11 @@ Implemented so far:
 - Django admin registered for both models: search, filters, soft-delete
   actions
 - Idempotent sample data seeding via `python manage.py seed_data`
+- **Full public website**: Home (hero, about preview, featured courses,
+  why-choose-us, CTA), About (mission/vision/values), Courses (data-driven
+  grid of active courses), Contact (details + validated enquiry form)
+- Reusable `course_card` template partial shared by Home and Courses pages
+- Structured logging configured (console handler, per-app loggers)
 
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
 Public website content, Admission Enquiry form, CRUD, Search/Filter,
@@ -121,9 +126,11 @@ Defined in `.env` (see `.env.example`):
 
 ## Usage
 
-Students will be able to submit admission enquiries through the public site
-(built in Phase 4). Staff will log in (Phase 9) to manage, search, filter,
-update and export enquiries via the dashboard (Phases 5–11).
+Students can now browse courses and submit a general enquiry through the
+public site (Home, About, Courses, Contact — Phase 3). The dedicated
+course-specific Admission Enquiry form arrives in Phase 4. Staff will log
+in (Phase 9) to manage, search, filter, update and export admission
+enquiries via the dashboard (Phases 5–11).
 
 ## AWS Deployment
 
@@ -140,6 +147,12 @@ Not yet implemented.
       percentages, and past admission years; soft-delete manager correctly
       excludes deleted records by default; Django admin verified end-to-end
       (login, Course list, Enquiry list including soft-deleted rows)
+- [x] Phase 3: Home/About/Courses/Contact routes all return 200; Courses
+      page correctly lists only active courses (5 of 6 seeded, excluding
+      the inactive Diploma); Contact form rejects invalid input (6 inline
+      errors shown) and accepts valid input (302 redirect, success message
+      shown, submission logged); accessibility verified (all 5 form fields
+      have associated `<label for>`, error messages carry `role="alert"`)
 - [ ] CRUD, Search, Filters, Authentication, full Dashboard — not yet built
       (future phases)
 

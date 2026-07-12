@@ -1,8 +1,141 @@
 {% extends 'base.html' %}
-{% block title %}Home - Campora{% endblock %}
+{% load static %}
+{% block title %}Campora – Connecting Students with the Right Future{% endblock %}
+
 {% block content %}
-<div class="container py-5">
-    <h1 class="mb-3">Home Page</h1>
-    <p class="text-muted">This page is scaffolded in Phase 1 and will be fully designed in Phase 3 (Public Website).</p>
-</div>
+
+<!-- Hero Banner -->
+<section class="text-white" style="background: linear-gradient(135deg, var(--brand-primary), #1d4ed8);">
+    <div class="container py-5">
+        <div class="row align-items-center py-4">
+            <div class="col-lg-7">
+                <h1 class="campora-heading display-5 fw-semibold mb-3">
+                    Connecting Students with the Right Future.
+                </h1>
+                <p class="lead mb-4">
+                    Campora is a modern admission &amp; enquiry portal that helps you discover
+                    the right course, get your questions answered quickly, and take the first
+                    step toward your future — all in one place.
+                </p>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="{% url 'core:courses' %}" class="btn btn-light btn-lg px-4">
+                        Explore Courses
+                    </a>
+                    <a href="{% url 'core:contact' %}" class="btn btn-accent btn-lg px-4">
+                        Apply Now
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-5 d-none d-lg-flex justify-content-center">
+                <i data-lucide="graduation-cap" style="width:220px;height:220px;opacity:0.9;"></i>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- About Preview -->
+<section class="bg-section-light">
+    <div class="container">
+        <div class="row align-items-center gy-4">
+            <div class="col-lg-6">
+                <h2 class="campora-heading mb-3">About Campora</h2>
+                <p class="text-muted">
+                    Campora brings admission enquiry management into the modern era. Prospective
+                    students can explore courses and reach out with questions, while our
+                    admissions team manages, tracks and responds to every enquiry through a
+                    single, organized dashboard — built for clarity, speed, and a great
+                    experience on both sides.
+                </p>
+                <a href="{% url 'core:about' %}" class="btn btn-primary">Learn More About Us</a>
+            </div>
+            <div class="col-lg-6">
+                <div class="row g-3 text-center">
+                    <div class="col-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <i data-lucide="users" class="text-primary mb-2" style="width:32px;height:32px;"></i>
+                                <h3 class="campora-heading h4 mb-0">1000+</h3>
+                                <p class="small text-muted mb-0">Students Guided</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <i data-lucide="book-open" class="text-primary mb-2" style="width:32px;height:32px;"></i>
+                                <h3 class="campora-heading h4 mb-0">{{ featured_courses|length|default:"6" }}+</h3>
+                                <p class="small text-muted mb-0">Active Courses</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Featured Courses -->
+<section>
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="campora-heading mb-2">Popular Courses</h2>
+            <p class="text-muted">Explore a few of the programs students are enquiring about right now.</p>
+        </div>
+
+        {% if featured_courses %}
+        <div class="row g-4">
+            {% for course in featured_courses %}
+                {% include 'partials/course_card.html' %}
+            {% endfor %}
+        </div>
+        <div class="text-center mt-4">
+            <a href="{% url 'core:courses' %}" class="btn btn-outline-primary">
+                View All Courses
+            </a>
+        </div>
+        {% else %}
+        <div class="campora-empty-state">
+            <i data-lucide="inbox"></i>
+            <p class="mb-0">No courses are available right now. Please check back soon.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Why Choose Us -->
+<section class="bg-section-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="campora-heading mb-2">Why Choose Campora</h2>
+            <p class="text-muted">A simpler, faster way to start your admission journey.</p>
+        </div>
+        <div class="row g-4 text-center">
+            <div class="col-md-4">
+                <i data-lucide="zap" class="text-primary mb-3" style="width:36px;height:36px;"></i>
+                <h5 class="campora-heading">Fast Response</h5>
+                <p class="text-muted small">Our admissions team reviews and responds to enquiries quickly.</p>
+            </div>
+            <div class="col-md-4">
+                <i data-lucide="shield-check" class="text-primary mb-3" style="width:36px;height:36px;"></i>
+                <h5 class="campora-heading">Secure &amp; Reliable</h5>
+                <p class="text-muted small">Your information is handled securely, every step of the way.</p>
+            </div>
+            <div class="col-md-4">
+                <i data-lucide="compass" class="text-primary mb-3" style="width:36px;height:36px;"></i>
+                <h5 class="campora-heading">Guided Journey</h5>
+                <p class="text-muted small">From enquiry to admission, we help you find the right course.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="text-white text-center" style="background-color: var(--brand-accent);">
+    <div class="container py-4">
+        <h2 class="campora-heading mb-3">Ready to Begin Your Journey?</h2>
+        <p class="lead mb-4">Reach out today and take the first step toward the right future.</p>
+        <a href="{% url 'core:contact' %}" class="btn btn-light btn-lg px-5">Apply Now</a>
+    </div>
+</section>
+
 {% endblock %}

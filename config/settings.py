@@ -131,3 +131,43 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # DEFAULT PRIMARY KEY FIELD TYPE
 # -----------------------------------------------------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# -----------------------------------------------------------------------
+# LOGGING
+# Console logging in development; in production, direct 'file' handler
+# output to a rotating log location as part of the deployment (Phase 13).
+# -----------------------------------------------------------------------
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': config('DJANGO_LOG_LEVEL', default='INFO'),
+            'propagate': False,
+        },
+        # Project apps log at INFO by default; override with LOG_LEVEL env var.
+        'core': {'handlers': ['console'], 'level': config('LOG_LEVEL', default='INFO'), 'propagate': False},
+        'accounts': {'handlers': ['console'], 'level': config('LOG_LEVEL', default='INFO'), 'propagate': False},
+        'admissions': {'handlers': ['console'], 'level': config('LOG_LEVEL', default='INFO'), 'propagate': False},
+        'courses': {'handlers': ['console'], 'level': config('LOG_LEVEL', default='INFO'), 'propagate': False},
+        'dashboard': {'handlers': ['console'], 'level': config('LOG_LEVEL', default='INFO'), 'propagate': False},
+    },
+}

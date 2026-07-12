@@ -1,8 +1,138 @@
 {% extends 'base.html' %}
-{% block title %}Contact - Campora{% endblock %}
+{% block title %}Contact Us - Campora{% endblock %}
+
 {% block content %}
-<div class="container py-5">
-    <h1 class="mb-3">Contact Page</h1>
-    <p class="text-muted">This page is scaffolded in Phase 1 and will be fully designed in Phase 3 (Public Website).</p>
-</div>
+
+<section class="bg-section-light">
+    <div class="container py-4 text-center">
+        <h1 class="campora-heading mb-3">Get in Touch</h1>
+        <p class="lead text-muted mx-auto" style="max-width: 700px;">
+            Have a question about a course or the admission process? Send us a message and
+            we'll get back to you shortly.
+        </p>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row g-4">
+
+            <!-- Contact Details -->
+            <div class="col-lg-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-4">Contact Details</h5>
+
+                        <div class="d-flex align-items-start mb-3">
+                            <i data-lucide="map-pin" class="text-primary flex-shrink-0 me-2" style="width:20px;height:20px;"></i>
+                            <span class="text-muted">
+                                Campora Admissions Office<br>
+                                123 Education Lane, Salt Lake<br>
+                                Kolkata, West Bengal 700091, India
+                            </span>
+                        </div>
+
+                        <div class="d-flex align-items-start mb-3">
+                            <i data-lucide="phone" class="text-primary flex-shrink-0 me-2" style="width:20px;height:20px;"></i>
+                            <a href="tel:+911234567890" class="text-muted text-decoration-none">+91 12345 67890</a>
+                        </div>
+
+                        <div class="d-flex align-items-start mb-3">
+                            <i data-lucide="mail" class="text-primary flex-shrink-0 me-2" style="width:20px;height:20px;"></i>
+                            <a href="mailto:admissions@campora.local" class="text-muted text-decoration-none">admissions@campora.local</a>
+                        </div>
+
+                        <div class="d-flex align-items-start">
+                            <i data-lucide="clock" class="text-primary flex-shrink-0 me-2" style="width:20px;height:20px;"></i>
+                            <span class="text-muted">Mon–Sat: 9:00 AM – 5:00 PM</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Form -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-4">Send Us a Message</h5>
+
+                        <form method="post" novalidate>
+                            {% csrf_token %}
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="{{ form.full_name.id_for_label }}" class="form-label">
+                                        {{ form.full_name.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.full_name }}
+                                    {% if form.full_name.errors %}
+                                    <div class="text-danger small mt-1" role="alert">
+                                        {{ form.full_name.errors|join:", " }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="{{ form.email.id_for_label }}" class="form-label">
+                                        {{ form.email.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.email }}
+                                    {% if form.email.errors %}
+                                    <div class="text-danger small mt-1" role="alert">
+                                        {{ form.email.errors|join:", " }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="{{ form.phone.id_for_label }}" class="form-label">
+                                        {{ form.phone.label }}
+                                    </label>
+                                    {{ form.phone }}
+                                    {% if form.phone.errors %}
+                                    <div class="text-danger small mt-1" role="alert">
+                                        {{ form.phone.errors|join:", " }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="{{ form.subject.id_for_label }}" class="form-label">
+                                        {{ form.subject.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.subject }}
+                                    {% if form.subject.errors %}
+                                    <div class="text-danger small mt-1" role="alert">
+                                        {{ form.subject.errors|join:", " }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-12">
+                                    <label for="{{ form.message.id_for_label }}" class="form-label">
+                                        {{ form.message.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.message }}
+                                    {% if form.message.errors %}
+                                    <div class="text-danger small mt-1" role="alert">
+                                        {{ form.message.errors|join:", " }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary px-4">
+                                        <i data-lucide="send" style="width:16px;height:16px;"></i>
+                                        Send Message
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 {% endblock %}

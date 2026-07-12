@@ -1,0 +1,25 @@
+{% load static %}
+<div class="col-md-6 col-lg-4">
+    <div class="card h-100">
+        <div class="card-body d-flex flex-column">
+            <div class="mb-2 text-primary">
+                <i data-lucide="book-open" style="width:28px;height:28px;"></i>
+            </div>
+            <h5 class="card-title campora-heading">{{ course.course_name }}</h5>
+            <p class="mb-1 small text-muted">
+                <i data-lucide="clock" style="width:14px;height:14px;"></i>
+                {{ course.duration }}
+            </p>
+            <p class="mb-3 small text-muted">
+                <i data-lucide="check-circle" style="width:14px;height:14px;"></i>
+                {{ course.eligibility }}
+            </p>
+            {% if course.description %}
+            <p class="card-text flex-grow-1">{{ course.description }}</p>
+            {% endif %}
+            <a href="{% url 'core:contact' %}" class="btn btn-primary mt-3 align-self-start">
+                Enquire Now
+            </a>
+        </div>
+    </div>
+</div>

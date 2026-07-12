@@ -1,8 +1,41 @@
 {% extends 'base.html' %}
 {% block title %}Courses - Campora{% endblock %}
+
 {% block content %}
-<div class="container py-5">
-    <h1 class="mb-3">Courses Page</h1>
-    <p class="text-muted">This page is scaffolded in Phase 1 and will be fully designed in Phase 3 (Public Website).</p>
-</div>
+
+<section class="bg-section-light">
+    <div class="container py-4 text-center">
+        <h1 class="campora-heading mb-3">Explore Our Courses</h1>
+        <p class="lead text-muted mx-auto" style="max-width: 700px;">
+            Browse the programs currently open for admission enquiries. Found one you like?
+            Reach out and our team will guide you through the next steps.
+        </p>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        {% if courses %}
+        <div class="row g-4">
+            {% for course in courses %}
+                {% include 'partials/course_card.html' %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="campora-empty-state">
+            <i data-lucide="book-x"></i>
+            <p class="mb-0">No courses are currently open for enquiries. Please check back soon.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="bg-section-light text-center">
+    <div class="container py-4">
+        <h2 class="campora-heading mb-3">Don't See What You're Looking For?</h2>
+        <p class="text-muted mb-4">Get in touch — our admissions team is happy to help you find the right fit.</p>
+        <a href="{% url 'core:contact' %}" class="btn btn-primary btn-lg px-4">Contact Us</a>
+    </div>
+</section>
+
 {% endblock %}
