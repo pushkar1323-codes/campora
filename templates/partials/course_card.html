@@ -17,7 +17,7 @@
             {% if course.description %}
             <p class="card-text flex-grow-1">{{ course.description }}</p>
             {% endif %}
-            <a href="{% url 'core:contact' %}" class="btn btn-primary mt-3 align-self-start">
+            <a href="{% url 'admissions:enquiry_create' course.id %}" class="btn btn-primary mt-3 align-self-start">
                 Enquire Now
             </a>
         </div>

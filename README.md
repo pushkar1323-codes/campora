@@ -1,24 +1,26 @@
 # Campora – College Admission & Student Enquiry Portal
 
-**Campora** is a modern web-based College Admission & Student Enquiry Portal
-that enables educational institutions to efficiently manage admission
-enquiries, student registrations, counselling, admission workflows, course
-management, and administrative operations through a secure, user-friendly
-platform.
+**Campora** is a centralized, multi-college SaaS admission and student
+enquiry platform. Colleges register and manage their own admission process
+on Campora; students discover colleges, browse courses, and submit
+admission enquiries — all from one platform, instead of visiting a dozen
+different college websites.
 
 > "Connecting Students with the Right Future."
 
 Developed by **Pushkar Srivastava**. © 2026 Campora. All Rights Reserved.
 
-Prospective students submit admission enquiries through the public site,
-while college staff manage, search, update, filter, export and analyze
-those enquiries through the Campora dashboard. Data is stored in MySQL
-(Amazon RDS in production) and the application is deployed on AWS EC2.
+**Platform roles**: Super Admin (manages the platform), College Admin /
+College Staff (manage their own college's courses and enquiries), and
+Student (browses colleges, submits enquiries). See "Architecture" below.
+
+Data is stored in MySQL (Amazon RDS in production) and the application is
+deployed on AWS EC2.
 
 _Note: internal project/package name (`college_admission`), Django app names
 (`core`, `accounts`, `admissions`, `courses`, `dashboard`), database name
-(`college_admission_db`), and folder structure are unchanged per the
-technical architecture — only user-facing branding is "Campora"._
+(`college_admission_db`), and folder structure are unchanged — only
+user-facing branding is "Campora."_
 
 ## Features
 
@@ -29,21 +31,73 @@ Implemented so far:
 - Bootstrap 5 responsive base template with sticky navbar and footer
 - Static/media file configuration
 - Local MySQL database configuration via environment variables
-- **Database models**: `Course` (courses app) and `Enquiry` (admissions app)
-  with FK relationship, soft-delete support (via a custom manager), field
-  validators, and indexes — see `DATABASE_DESIGN.docx`
-- Django admin registered for both models: search, filters, soft-delete
-  actions
+- **Multi-college platform architecture**:
+  - Custom `User` model (`accounts.User`) with 4 roles: Super Admin,
+    College Admin, College Staff, Student — see "Architecture & Roles"
+  - `StudentProfile` / `StaffProfile` role-extension models
+  - `College` model (`courses` app) with an approval-workflow `status`
+    field (Pending/Approved/Rejected/Suspended) — only Approved colleges
+    are ever shown publicly
+  - `Course` belongs to exactly one `College`; course names are unique
+    **per college**, not globally (two colleges can both offer "BBA")
+  - `Enquiry` references both `College` and `Course` — `college` is
+    auto-derived from `course.college` on save and is not independently
+    editable, so the two can never drift out of sync
+  - Soft-delete support on `Enquiry` via a custom manager, field
+    validators, and database indexes
+- Django admin registered for all models: search, filters, fieldsets, and
+  actions (soft-delete/restore on Enquiry; approve/reject/suspend on
+  College)
 - Idempotent sample data seeding via `python manage.py seed_data`
-- **Full public website**: Home (hero, about preview, featured courses,
-  why-choose-us, CTA), About (mission/vision/values), Courses (data-driven
-  grid of active courses), Contact (details + validated enquiry form)
-- Reusable `course_card` template partial shared by Home and Courses pages
+  (colleges, college admins/staff, students, courses, enquiries)
+- **Full public website**: Home (hero, platform stats, featured colleges,
+  why-choose-us, CTA), About (platform mission/vision/values), **Colleges**
+  (searchable/filterable directory), **College Detail** (profile, contact
+  info, active courses, gallery placeholder, at-a-glance stats), Courses
+  (grouped by college), Contact (platform-level, validated enquiry form)
+- Reusable `course_card` / `college_card` template partials
 - Structured logging configured (console handler, per-app loggers)
+- **Admission Enquiry submission** (Phase 4): students submit a course-
+  specific enquiry directly from a college's "Enquire Now" button — no
+  College/Course dropdown to fill in, since the course (and its college)
+  is fixed by the page the student came from. Works anonymously per
+  Version 1.0 scope; auto-links the enquiry to a logged-in Student's
+  account when one is signed in. Server-side validated (Django Forms,
+  reusing the existing field validators), Post/Redirect/Get, with a
+  confirmation page showing a reference number.
+- **Enquiry Management** (Phase 5): staff-facing listing (paginated,
+  20/page) and detail views under `/dashboard/enquiries/`. Platform Admin
+  sees every enquiry; College Admin/Staff see only their own college's
+  enquiries (ownership-enforced — another college's enquiry 404s rather
+  than 403s, so its existence isn't even confirmed). Every row/detail page
+  always shows the associated College and Course. Live search/filter/sort
+  is intentionally deferred to Phase 6.
 
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
-Public website content, Admission Enquiry form, CRUD, Search/Filter,
-Dashboard with charts, Authentication, CSV/Excel export, AWS deployment.
+Enquiry search/filter/sort (Phase 6), edit (Phase 7), delete/restore
+(Phase 8), full analytics dashboard, CSV/Excel export, AWS deployment.
+
+## Architecture & Roles
+
+Campora uses **one custom Django user model** (`accounts.User`) with a
+`role` field, rather than separate authentication systems per role:
+
+| Role | Scope |
+|---|---|
+| **Super Admin** | Manages the whole platform: approves/rejects/suspends colleges, manages users, views platform-wide analytics |
+| **College Admin** | Manages their own college's profile, courses, staff, and enquiries |
+| **College Staff** | Works under a College Admin: views/updates enquiries assigned to their college |
+| **Student** | Browses colleges/courses, submits enquiries, (future) tracks enquiry status |
+
+Data model: `User` → `StudentProfile` (Student role) or `StaffProfile`
+(College Admin / College Staff role, linked to a `College`).
+
+**Scope note:** this phase builds the *data model and admin* for roles
+and colleges — registration forms, login/logout views, the Super Admin
+approval workflow UI, and role-specific dashboards are architected for
+(the models are ready) but not yet built; they arrive in dedicated future
+phases. Today, only Django's built-in `/admin/` is used to manage
+Users/Colleges/Courses/Enquiries.
 
 ## Technology Stack
 
@@ -55,15 +109,19 @@ color palette defined in `static/css/style.css`.
 
 ```
 college_admission/
-├── accounts/         # Authentication & staff management
-├── admissions/        # Admission enquiry CRUD (Enquiry model)
-├── courses/          # Course management (Course model)
-├── dashboard/         # Analytics & reports
-├── core/              # Public website (Home, About, Contact) + seed_data command
+├── accounts/         # Custom User model (4 roles), StudentProfile,
+│                     # StaffProfile, authentication (login/register)
+├── admissions/        # Enquiry model + course-specific enquiry submission
+│                     # form/views (College + Course + optional submitted_by)
+├── courses/          # College model (approval workflow) + Course model
+├── dashboard/         # Role-scoped dashboards (Platform/College/Student)
+│                     # + staff-facing Enquiry Management (listing/detail)
+├── core/              # Public website (Home, About, Colleges, Courses,
+│                     # Contact) + seed_data command
 ├── config/            # Django project settings, root URLs, WSGI/ASGI
 ├── templates/          # Base template + partials (navbar, footer, messages)
 ├── static/            # css, js, images
-├── media/              # User-uploaded files
+├── media/              # User-uploaded files (college logos/cover images)
 ├── manage.py
 ├── requirements.txt
 ├── .env.example
@@ -90,24 +148,46 @@ college_admission/
    ```sql
    CREATE DATABASE college_admission_db CHARACTER SET utf8mb4;
    ```
-6. Run migrations:
+6. **If you have an existing local database from before this phase**, drop
+   and recreate it (see "⚠️ Breaking Change" below — this phase introduces
+   a custom user model, which Django cannot apply on top of an already
+   migrated default `auth.User` table):
+   ```sql
+   DROP DATABASE college_admission_db;
+   CREATE DATABASE college_admission_db CHARACTER SET utf8mb4;
+   ```
+7. Run migrations:
    ```
    python manage.py migrate
    ```
-7. (Optional) Seed sample courses and enquiries for local development:
+8. Seed sample colleges, users (Platform Admin, College Admins/Staff,
+   Students), courses and enquiries:
    ```
    python manage.py seed_data
    ```
-8. Create an admin/staff account to access the Django admin:
+   All seeded users share the password `Campora@12345` (development only).
+   Notable seeded logins: `superadmin`, `admin_campora_institute_of_technology`,
+   `staff_campora_institute_of_technology`, `priya_sharma` (student).
+9. (Optional) Create your own Django superuser for `/admin/`:
    ```
    python manage.py createsuperuser
    ```
-9. Start the development server:
-   ```
-   python manage.py runserver
-   ```
-   Visit `http://127.0.0.1:8000/admin/` and log in to manage Courses and
-   Enquiries.
+10. Start the development server:
+    ```
+    python manage.py runserver
+    ```
+    Visit `http://127.0.0.1:8000/` for the public site, or
+    `http://127.0.0.1:8000/accounts/login/` to log in as any seeded role
+    and reach your role-specific dashboard at `/dashboard/`.
+
+## ⚠️ Breaking Change: Custom User Model
+
+This phase introduces `accounts.User` as `AUTH_USER_MODEL`. Django does
+not support switching to a custom user model once migrations have been
+applied against the default one — so if you previously ran `migrate` on
+this project (Phases 1–3), **you must drop and recreate your local
+database** before running `migrate` again. This is a one-time step; there
+is no real production data to lose at this stage (only seeded/test data).
 
 ## Environment Variables
 
@@ -126,11 +206,25 @@ Defined in `.env` (see `.env.example`):
 
 ## Usage
 
-Students can now browse courses and submit a general enquiry through the
-public site (Home, About, Courses, Contact — Phase 3). The dedicated
-course-specific Admission Enquiry form arrives in Phase 4. Staff will log
-in (Phase 9) to manage, search, filter, update and export admission
-enquiries via the dashboard (Phases 5–11).
+- **Students** browse Colleges → College Details → Courses on the public
+  site, with or without an account, and can submit an **Admission Enquiry**
+  directly from any course's "Enquire Now" button — no account required.
+  They can also register/log in for a personal dashboard
+  (`/dashboard/student/`); enquiries submitted while logged in are
+  automatically linked to their account.
+- **College Admins** log in to manage their own college's staff
+  (`/dashboard/college/staff/`), browse their college's enquiries
+  (`/dashboard/enquiries/`) and view individual enquiry details
+  (`/dashboard/enquiries/<id>/`) — strictly scoped to their own college.
+- **College Staff** log in to view their college's dashboard and its
+  enquiries (same `/dashboard/enquiries/` listing, scoped to their own
+  college; staff management is Admin-only).
+- **Platform Admin** logs in to `/dashboard/platform/` to approve/reject/
+  suspend colleges, see platform-wide stats, and browse **every**
+  college's enquiries via the same `/dashboard/enquiries/` listing.
+
+Enquiry search/filter/sort (Phase 6), edit (Phase 7), and delete/restore
+(Phase 8) are still upcoming — not yet built.
 
 ## AWS Deployment
 
@@ -153,8 +247,46 @@ Not yet implemented.
       errors shown) and accepts valid input (302 redirect, success message
       shown, submission logged); accessibility verified (all 5 form fields
       have associated `<label for>`, error messages carry `role="alert"`)
-- [ ] CRUD, Search, Filters, Authentication, full Dashboard — not yet built
-      (future phases)
+- [x] Multi-college refactor: `College`/`Course`/`Enquiry` relationships
+      verified (zero `enquiry.college` / `course.college` mismatches across
+      9 seeded enquiries); per-college course-name uniqueness confirmed in
+      both directions (same name allowed at a different college, rejected
+      at the same college); `Colleges`/`College Detail`/grouped `Courses`
+      pages all verified; search and state-filter verified
+- [x] Authentication & RBAC foundation: custom `AUTH_USER_MODEL` migrates
+      cleanly from scratch; login/logout/student-registration verified;
+      role-based `403`s verified for every cross-role attempt (College
+      Admin → Platform Dashboard, College Staff → Manage Staff, Student →
+      Platform Dashboard); **college-ownership isolation verified** — a
+      College Admin can only ever create staff for, or view data from,
+      their own college (tested by attempting to add staff "for" another
+      college and confirming the created account was scoped to the
+      *actor's* college regardless); `seed_data` idempotency re-confirmed
+      after the rewrite
+- [x] Phase 4: Admission Enquiry submission verified end-to-end via
+      Django's test client — GET the enquiry form for a live course
+      (200); valid POST creates an `Enquiry` with `college` correctly
+      auto-derived from the course's college, then redirects (302) to a
+      working confirmation page (200); invalid POST (bad mobile number)
+      re-renders the form with errors (200) and creates no record;
+      enquiry URLs for an inactive course or a nonexistent course both
+      correctly return 404; Home/Colleges/College Detail/Courses/Contact
+      re-verified with no regressions
+- [x] Phase 5: Enquiry Management verified end-to-end via Django's test
+      client for all 3 staff roles — Platform Admin sees every enquiry
+      (count cross-checked against the DB total, 200); College Admin/Staff
+      see only their own college's enquiries (count cross-checked, 200);
+      cross-college detail access correctly 404s (ownership isolation);
+      own-college detail access returns 200 with correct data; Student
+      role correctly blocked (403); anonymous correctly redirected to
+      login (302); pagination verified with 25 bulk-created records
+      (page 1/2 both 200, out-of-range and below-range page numbers both
+      clamp to 200 instead of erroring — this caught and fixed a real
+      `EmptyPage` bug in the initial pagination template); all previously
+      working public and dashboard routes re-verified with no regressions
+- [ ] Search, Filters, Sort on Enquiries (Phase 6); Edit (Phase 7);
+      Delete/Restore (Phase 8); full analytics dashboard; CSV export —
+      not yet built (future phases)
 
 ## Future Enhancements
 

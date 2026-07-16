@@ -17,8 +17,11 @@ admin.site.index_title = "Welcome to Campora Administration"
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
-    # accounts, admissions, courses, dashboard URLs are wired in later phases
-    # as those apps are implemented (see IMPLEMENTATION_PLAN.docx).
+    path('accounts/', include('accounts.urls')),
+    path('dashboard/', include('dashboard.urls')),
+    path('admissions/', include('admissions.urls')),
+    # courses URLs are wired in a later phase (Phase 12 - staff-side course
+    # CRUD) as that app's own views are implemented (see IMPLEMENTATION_PLAN.docx).
 ]
 
 if settings.DEBUG:

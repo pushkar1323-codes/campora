@@ -1,9 +1,12 @@
 """
 Enquiry model for Campora — the core admission enquiry record.
 
-See DATABASE_DESIGN.docx section 3 for the authoritative field list, and
-PROJECT_BRAIN.docx "Enquiry Workflow" for the status lifecycle.
+See DATABASE_DESIGN.docx section 3 for the base field list, and
+PROJECT_BRAIN.docx "Enquiry Workflow" for the status lifecycle. Updated
+for the multi-college platform architecture: every Enquiry now belongs to
+both a College and a Course.
 """
+from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -87,6 +90,21 @@ class Enquiry(models.Model):
         related_name="enquiries",
         help_text="Course the student is interested in.",
     )
+    college = models.ForeignKey(
+        "courses.College",
+        on_delete=models.CASCADE,
+        related_name="enquiries",
+        editable=False,
+        help_text="Automatically set from the selected course's college — not independently editable.",
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="enquiries",
+        help_text="The logged-in student who submitted this enquiry, if any (student accounts are a future phase).",
+    )
     admission_year = models.PositiveIntegerField(
         validators=[validate_admission_year_not_past], db_index=True
     )
@@ -109,10 +127,18 @@ class Enquiry(models.Model):
         indexes = [
             models.Index(fields=["status", "admission_year"]),
             models.Index(fields=["is_deleted", "status"]),
+            models.Index(fields=["college", "status"]),
         ]
 
     def __str__(self):
-        return f"{self.full_name} — {self.course.course_name}"
+        return f"{self.full_name} — {self.course.course_name} ({self.college.name})"
+
+    def save(self, *args, **kwargs):
+        # college is always derived from course.college, never set
+        # independently — this guarantees the two can never drift out of
+        # sync (see field help_text and the class docstring above).
+        self.college = self.course.college
+        super().save(*args, **kwargs)
 
     def soft_delete(self):
         """Mark this enquiry as deleted without removing it from the database."""

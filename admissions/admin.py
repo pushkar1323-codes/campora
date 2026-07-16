@@ -16,17 +16,19 @@ class EnquiryAdmin(admin.ModelAdmin):
         "full_name",
         "email",
         "mobile",
+        "college",
         "course",
         "status",
         "admission_year",
         "is_deleted",
         "created_at",
     )
-    list_filter = ("status", "gender", "admission_year", "course", "is_deleted")
-    search_fields = ("full_name", "email", "mobile", "father_name")
+    list_filter = ("status", "gender", "admission_year", "college", "course", "is_deleted")
+    search_fields = ("full_name", "email", "mobile", "father_name", "college__name", "course__course_name")
     ordering = ("-created_at",)
-    readonly_fields = ("created_at", "updated_at")
-    list_select_related = ("course",)
+    readonly_fields = ("college", "created_at", "updated_at")
+    list_select_related = ("college", "course")
+    autocomplete_fields = ("course", "submitted_by")
     actions = ["mark_as_deleted", "restore_selected"]
 
     fieldsets = (
@@ -34,7 +36,11 @@ class EnquiryAdmin(admin.ModelAdmin):
             "fields": ("full_name", "father_name", "email", "mobile", "address", "dob", "gender")
         }),
         ("Academic Details", {
-            "fields": ("qualification", "percentage", "course", "admission_year")
+            "fields": ("qualification", "percentage", "course", "college", "admission_year")
+        }),
+        ("Account Link", {
+            "fields": ("submitted_by",),
+            "description": "Set automatically once student accounts exist (future phase); optional for now.",
         }),
         ("Workflow", {
             "fields": ("status", "staff_notes", "is_deleted")

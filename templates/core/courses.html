@@ -5,10 +5,10 @@
 
 <section class="bg-section-light">
     <div class="container py-4 text-center">
-        <h1 class="campora-heading mb-3">Explore Our Courses</h1>
+        <h1 class="campora-heading mb-3">Explore Courses</h1>
         <p class="lead text-muted mx-auto" style="max-width: 700px;">
-            Browse the programs currently open for admission enquiries. Found one you like?
-            Reach out and our team will guide you through the next steps.
+            Browse courses currently open for enquiries, grouped by college. Prefer to browse
+            college-first? <a href="{% url 'core:colleges' %}">View all colleges</a>.
         </p>
     </div>
 </section>
@@ -16,11 +16,27 @@
 <section>
     <div class="container">
         {% if courses %}
-        <div class="row g-4">
-            {% for course in courses %}
-                {% include 'partials/course_card.html' %}
+            {% regroup courses by college as college_course_list %}
+            {% for group in college_course_list %}
+            <div class="mb-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h3 class="campora-heading mb-0">
+                        <a href="{% url 'core:college_detail' group.grouper.slug %}" class="text-decoration-none">
+                            {{ group.grouper.name }}
+                        </a>
+                    </h3>
+                    <span class="text-muted small">
+                        <i data-lucide="map-pin" style="width:14px;height:14px;"></i>
+                        {{ group.grouper.city }}{% if group.grouper.city and group.grouper.state %}, {% endif %}{{ group.grouper.state }}
+                    </span>
+                </div>
+                <div class="row g-4">
+                    {% for course in group.list %}
+                        {% include 'partials/course_card.html' %}
+                    {% endfor %}
+                </div>
+            </div>
             {% endfor %}
-        </div>
         {% else %}
         <div class="campora-empty-state">
             <i data-lucide="book-x"></i>
@@ -33,7 +49,7 @@
 <section class="bg-section-light text-center">
     <div class="container py-4">
         <h2 class="campora-heading mb-3">Don't See What You're Looking For?</h2>
-        <p class="text-muted mb-4">Get in touch — our admissions team is happy to help you find the right fit.</p>
+        <p class="text-muted mb-4">Get in touch — our team is happy to help you find the right fit.</p>
         <a href="{% url 'core:contact' %}" class="btn btn-primary btn-lg px-4">Contact Us</a>
     </div>
 </section>

@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Enquiry Submitted - Campora{% endblock %}
+
+{% block content %}
+
+<section>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-7">
+                <div class="card text-center">
+                    <div class="card-body py-5">
+                        <i data-lucide="check-circle" class="text-success mb-3" style="width:64px;height:64px;"></i>
+                        <h1 class="campora-heading mb-3">Enquiry Submitted!</h1>
+                        <p class="text-muted mb-4">
+                            Thank you, {{ enquiry.full_name }}. Your admission enquiry for
+                            <strong>{{ enquiry.course.course_name }}</strong> at
+                            <strong>{{ enquiry.college.name }}</strong> has been received.
+                            Our admissions team will contact you at
+                            <strong>{{ enquiry.email }}</strong> or <strong>{{ enquiry.mobile }}</strong> shortly.
+                        </p>
+
+                        <div class="d-inline-block text-start bg-section-light rounded p-3 mb-4">
+                            <div class="d-flex justify-content-between gap-4 mb-1">
+                                <span class="text-muted small">Reference Number</span>
+                                <span class="fw-semibold">#{{ enquiry.pk }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between gap-4 mb-1">
+                                <span class="text-muted small">College</span>
+                                <span class="fw-semibold">{{ enquiry.college.name }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between gap-4 mb-1">
+                                <span class="text-muted small">Course</span>
+                                <span class="fw-semibold">{{ enquiry.course.course_name }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between gap-4">
+                                <span class="text-muted small">Status</span>
+                                <span class="badge bg-primary-subtle text-primary">{{ enquiry.get_status_display }}</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <a href="{% url 'core:college_detail' enquiry.college.slug %}" class="btn btn-outline-primary me-2">
+                                Back to {{ enquiry.college.name }}
+                            </a>
+                            <a href="{% url 'core:colleges' %}" class="btn btn-primary">
+                                Browse More Colleges
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

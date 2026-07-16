@@ -13,16 +13,28 @@
                     Connecting Students with the Right Future.
                 </h1>
                 <p class="lead mb-4">
-                    Campora is a modern admission &amp; enquiry portal that helps you discover
-                    the right course, get your questions answered quickly, and take the first
-                    step toward your future — all in one place.
+                    Campora is a centralized platform where you can discover colleges, explore
+                    their courses, and submit admission enquiries — all in one place, without
+                    visiting a dozen different college websites.
                 </p>
+
+                <form method="get" action="{% url 'core:colleges' %}" class="d-flex flex-wrap gap-2 mb-4" role="search">
+                    <input
+                        type="search" name="q" class="form-control form-control-lg"
+                        placeholder="Search colleges by name or city..."
+                        style="max-width: 360px;" aria-label="Search colleges">
+                    <button type="submit" class="btn btn-light btn-lg px-4">
+                        <i data-lucide="search" style="width:18px;height:18px;"></i>
+                        Search
+                    </button>
+                </form>
+
                 <div class="d-flex flex-wrap gap-3">
-                    <a href="{% url 'core:courses' %}" class="btn btn-light btn-lg px-4">
-                        Explore Courses
+                    <a href="{% url 'core:colleges' %}" class="btn btn-light btn-lg px-4">
+                        Browse Colleges
                     </a>
                     <a href="{% url 'core:contact' %}" class="btn btn-accent btn-lg px-4">
-                        Apply Now
+                        Get in Touch
                     </a>
                 </div>
             </div>
@@ -33,40 +45,43 @@
     </div>
 </section>
 
-<!-- About Preview -->
+<!-- Platform Stats -->
 <section class="bg-section-light">
     <div class="container">
-        <div class="row align-items-center gy-4">
-            <div class="col-lg-6">
-                <h2 class="campora-heading mb-3">About Campora</h2>
-                <p class="text-muted">
-                    Campora brings admission enquiry management into the modern era. Prospective
-                    students can explore courses and reach out with questions, while our
-                    admissions team manages, tracks and responds to every enquiry through a
-                    single, organized dashboard — built for clarity, speed, and a great
-                    experience on both sides.
-                </p>
-                <a href="{% url 'core:about' %}" class="btn btn-primary">Learn More About Us</a>
-            </div>
-            <div class="col-lg-6">
-                <div class="row g-3 text-center">
-                    <div class="col-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <i data-lucide="users" class="text-primary mb-2" style="width:32px;height:32px;"></i>
-                                <h3 class="campora-heading h4 mb-0">1000+</h3>
-                                <p class="small text-muted mb-0">Students Guided</p>
-                            </div>
-                        </div>
+        <div class="row g-3 text-center">
+            <div class="col-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <i data-lucide="landmark" class="text-primary mb-2" style="width:32px;height:32px;"></i>
+                        <h3 class="campora-heading h4 mb-0">{{ stats.college_count }}+</h3>
+                        <p class="small text-muted mb-0">Colleges on Campora</p>
                     </div>
-                    <div class="col-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <i data-lucide="book-open" class="text-primary mb-2" style="width:32px;height:32px;"></i>
-                                <h3 class="campora-heading h4 mb-0">{{ featured_courses|length|default:"6" }}+</h3>
-                                <p class="small text-muted mb-0">Active Courses</p>
-                            </div>
-                        </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <i data-lucide="book-open" class="text-primary mb-2" style="width:32px;height:32px;"></i>
+                        <h3 class="campora-heading h4 mb-0">{{ stats.course_count }}+</h3>
+                        <p class="small text-muted mb-0">Active Courses</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <i data-lucide="users" class="text-primary mb-2" style="width:32px;height:32px;"></i>
+                        <h3 class="campora-heading h4 mb-0">1000+</h3>
+                        <p class="small text-muted mb-0">Students Guided</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <i data-lucide="shield-check" class="text-primary mb-2" style="width:32px;height:32px;"></i>
+                        <h3 class="campora-heading h4 mb-0">100%</h3>
+                        <p class="small text-muted mb-0">Verified Colleges</p>
                     </div>
                 </div>
             </div>
@@ -74,29 +89,29 @@
     </div>
 </section>
 
-<!-- Featured Courses -->
+<!-- Featured Colleges -->
 <section>
     <div class="container">
         <div class="text-center mb-5">
-            <h2 class="campora-heading mb-2">Popular Courses</h2>
-            <p class="text-muted">Explore a few of the programs students are enquiring about right now.</p>
+            <h2 class="campora-heading mb-2">Featured Colleges</h2>
+            <p class="text-muted">Explore a few of the colleges currently on Campora.</p>
         </div>
 
-        {% if featured_courses %}
+        {% if featured_colleges %}
         <div class="row g-4">
-            {% for course in featured_courses %}
-                {% include 'partials/course_card.html' %}
+            {% for college in featured_colleges %}
+                {% include 'partials/college_card.html' %}
             {% endfor %}
         </div>
         <div class="text-center mt-4">
-            <a href="{% url 'core:courses' %}" class="btn btn-outline-primary">
-                View All Courses
+            <a href="{% url 'core:colleges' %}" class="btn btn-outline-primary">
+                View All Colleges
             </a>
         </div>
         {% else %}
         <div class="campora-empty-state">
             <i data-lucide="inbox"></i>
-            <p class="mb-0">No courses are available right now. Please check back soon.</p>
+            <p class="mb-0">No colleges are available right now. Please check back soon.</p>
         </div>
         {% endif %}
     </div>
@@ -107,23 +122,23 @@
     <div class="container">
         <div class="text-center mb-5">
             <h2 class="campora-heading mb-2">Why Choose Campora</h2>
-            <p class="text-muted">A simpler, faster way to start your admission journey.</p>
+            <p class="text-muted">One platform, every college, a simpler admission journey.</p>
         </div>
         <div class="row g-4 text-center">
             <div class="col-md-4">
+                <i data-lucide="landmark" class="text-primary mb-3" style="width:36px;height:36px;"></i>
+                <h5 class="campora-heading">One Platform, Many Colleges</h5>
+                <p class="text-muted small">Compare colleges and courses side by side, without hopping between websites.</p>
+            </div>
+            <div class="col-md-4">
                 <i data-lucide="zap" class="text-primary mb-3" style="width:36px;height:36px;"></i>
                 <h5 class="campora-heading">Fast Response</h5>
-                <p class="text-muted small">Our admissions team reviews and responds to enquiries quickly.</p>
+                <p class="text-muted small">College admissions teams review and respond to enquiries quickly.</p>
             </div>
             <div class="col-md-4">
                 <i data-lucide="shield-check" class="text-primary mb-3" style="width:36px;height:36px;"></i>
                 <h5 class="campora-heading">Secure &amp; Reliable</h5>
                 <p class="text-muted small">Your information is handled securely, every step of the way.</p>
-            </div>
-            <div class="col-md-4">
-                <i data-lucide="compass" class="text-primary mb-3" style="width:36px;height:36px;"></i>
-                <h5 class="campora-heading">Guided Journey</h5>
-                <p class="text-muted small">From enquiry to admission, we help you find the right course.</p>
             </div>
         </div>
     </div>
@@ -133,8 +148,8 @@
 <section class="text-white text-center" style="background-color: var(--brand-accent);">
     <div class="container py-4">
         <h2 class="campora-heading mb-3">Ready to Begin Your Journey?</h2>
-        <p class="lead mb-4">Reach out today and take the first step toward the right future.</p>
-        <a href="{% url 'core:contact' %}" class="btn btn-light btn-lg px-5">Apply Now</a>
+        <p class="lead mb-4">Browse colleges today and take the first step toward the right future.</p>
+        <a href="{% url 'core:colleges' %}" class="btn btn-light btn-lg px-5">Browse Colleges</a>
     </div>
 </section>
 

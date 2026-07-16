@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}Enquiry Management - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="campora-heading mb-1">
+                {% if college %}{{ college.name }} Enquiries{% else %}All Enquiries{% endif %}
+            </h1>
+            <p class="text-muted mb-0">
+                {{ total_count }} enquir{{ total_count|pluralize:"y,ies" }}
+                {% if college %}for {{ college.name }}{% else %}across all colleges{% endif %}
+            </p>
+        </div>
+        {% if college %}
+        <a href="{% url 'dashboard:college' %}" class="btn btn-outline-primary">
+            <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+            Back to Dashboard
+        </a>
+        {% else %}
+        <a href="{% url 'dashboard:platform' %}" class="btn btn-outline-primary">
+            <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+            Back to Dashboard
+        </a>
+        {% endif %}
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="card">
+            <div class="card-body">
+                {% if enquiries %}
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Ref #</th>
+                                <th>Student Name</th>
+                                <th>Email</th>
+                                <th>Mobile</th>
+                                {% if not college %}<th>College</th>{% endif %}
+                                <th>Course</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for enquiry in enquiries %}
+                            <tr>
+                                <td>#{{ enquiry.pk }}</td>
+                                <td>{{ enquiry.full_name }}</td>
+                                <td>{{ enquiry.email }}</td>
+                                <td>{{ enquiry.mobile }}</td>
+                                {% if not college %}<td>{{ enquiry.college.name }}</td>{% endif %}
+                                <td>{{ enquiry.course.course_name }}</td>
+                                <td>
+                                    <span class="badge bg-primary-subtle text-primary">{{ enquiry.get_status_display }}</span>
+                                </td>
+                                <td>{{ enquiry.created_at|date:"M d, Y" }}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'dashboard:enquiry_detail' enquiry.pk %}" class="btn btn-sm btn-outline-primary">
+                                        View
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if page_obj.has_other_pages %}
+                <nav aria-label="Enquiry list pagination" class="mt-3">
+                    <ul class="pagination justify-content-center mb-0">
+                        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                            {% if page_obj.has_previous %}
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                            {% else %}
+                            <span class="page-link">Previous</span>
+                            {% endif %}
+                        </li>
+                        {% for page_number in page_obj.paginator.page_range %}
+                            {% if page_number == page_obj.number %}
+                            <li class="page-item active" aria-current="page">
+                                <span class="page-link">{{ page_number }}</span>
+                            </li>
+                            {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_number }}">{{ page_number }}</a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                            {% if page_obj.has_next %}
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                            {% else %}
+                            <span class="page-link">Next</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <div class="campora-empty-state">
+                    <i data-lucide="inbox"></i>
+                    <p class="mb-0">No enquiries found{% if college %} for {{ college.name }}{% endif %}.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

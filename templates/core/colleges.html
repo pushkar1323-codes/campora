@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Colleges - Campora{% endblock %}
+
+{% block content %}
+
+<section class="bg-section-light">
+    <div class="container py-4 text-center">
+        <h1 class="campora-heading mb-3">Explore Colleges on Campora</h1>
+        <p class="lead text-muted mx-auto" style="max-width: 700px;">
+            Browse colleges, compare courses, and find the right fit — all from one platform.
+        </p>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+
+        <!-- Search & Filter -->
+        <form method="get" class="row g-2 mb-4" role="search">
+            <div class="col-md-6">
+                <label for="collegeSearch" class="visually-hidden">Search colleges</label>
+                <input
+                    type="search" id="collegeSearch" name="q" value="{{ query }}"
+                    class="form-control" placeholder="Search by college name or city...">
+            </div>
+            <div class="col-md-4">
+                <label for="stateFilter" class="visually-hidden">Filter by state</label>
+                <select id="stateFilter" name="state" class="form-select">
+                    <option value="">All States</option>
+                    {% for state in available_states %}
+                    <option value="{{ state }}" {% if state == selected_state %}selected{% endif %}>{{ state }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary">
+                    <i data-lucide="filter" style="width:16px;height:16px;"></i>
+                    Filter
+                </button>
+            </div>
+        </form>
+
+        {% if colleges %}
+        <div class="row g-4">
+            {% for college in colleges %}
+                {% include 'partials/college_card.html' %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="campora-empty-state">
+            <i data-lucide="search-x"></i>
+            <p class="mb-0">No colleges match your search. Try a different name, city, or state.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{% endblock %}

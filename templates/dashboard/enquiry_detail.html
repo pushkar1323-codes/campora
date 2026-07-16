@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}Enquiry #{{ enquiry.pk }} - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="campora-heading mb-1">Enquiry #{{ enquiry.pk }}</h1>
+            <p class="text-muted mb-0">{{ enquiry.full_name }} &middot; {{ enquiry.course.course_name }} at {{ enquiry.college.name }}</p>
+        </div>
+        <a href="{% url 'dashboard:enquiry_list' %}" class="btn btn-outline-primary">
+            <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+            Back to Enquiries
+        </a>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-8">
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Applicant Details</h5>
+                        <div class="row gy-3">
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Full Name</div>
+                                <div class="fw-semibold">{{ enquiry.full_name }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Father's / Guardian's Name</div>
+                                <div class="fw-semibold">{{ enquiry.father_name }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Email</div>
+                                <div class="fw-semibold">{{ enquiry.email }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Mobile</div>
+                                <div class="fw-semibold">{{ enquiry.mobile }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Date of Birth</div>
+                                <div class="fw-semibold">{{ enquiry.dob|date:"M d, Y" }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Gender</div>
+                                <div class="fw-semibold">{{ enquiry.get_gender_display }}</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="text-muted small">Address</div>
+                                <div class="fw-semibold">{{ enquiry.address }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Academic Details</h5>
+                        <div class="row gy-3">
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Qualification</div>
+                                <div class="fw-semibold">{{ enquiry.qualification }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Percentage</div>
+                                <div class="fw-semibold">{{ enquiry.percentage }}%</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Admission Year</div>
+                                <div class="fw-semibold">{{ enquiry.admission_year }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if enquiry.staff_notes %}
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Staff Notes</h5>
+                        <p class="mb-0" style="white-space: pre-wrap;">{{ enquiry.staff_notes }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Enquiry Info</h5>
+                        <div class="mb-3">
+                            <div class="text-muted small">Status</div>
+                            <span class="badge bg-primary-subtle text-primary">{{ enquiry.get_status_display }}</span>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">College</div>
+                            <div class="fw-semibold">
+                                <a href="{% url 'core:college_detail' enquiry.college.slug %}">{{ enquiry.college.name }}</a>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">Course</div>
+                            <div class="fw-semibold">{{ enquiry.course.course_name }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">Submitted</div>
+                            <div class="fw-semibold">{{ enquiry.created_at|date:"M d, Y, g:i a" }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="text-muted small">Last Updated</div>
+                            <div class="fw-semibold">{{ enquiry.updated_at|date:"M d, Y, g:i a" }}</div>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Submitted By</div>
+                            <div class="fw-semibold">
+                                {% if enquiry.submitted_by %}{{ enquiry.submitted_by.username }} (registered student){% else %}Guest (not logged in){% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

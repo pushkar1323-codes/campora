@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}My Dashboard - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4">
+        <h1 class="campora-heading mb-1">Welcome, {{ request.user.first_name|default:request.user.username }}</h1>
+        <p class="text-muted mb-0">Your Campora student dashboard.</p>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <i data-lucide="user" class="text-primary mb-3" style="width:32px;height:32px;"></i>
+                        <h5 class="campora-heading mb-3">Your Profile</h5>
+                        <p class="mb-1"><span class="text-muted small">Username:</span> {{ request.user.username }}</p>
+                        <p class="mb-1"><span class="text-muted small">Email:</span> {{ request.user.email }}</p>
+                        {% if request.user.student_profile.phone %}
+                        <p class="mb-1"><span class="text-muted small">Phone:</span> {{ request.user.student_profile.phone }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <i data-lucide="search" class="text-primary mb-3" style="width:32px;height:32px;"></i>
+                        <h5 class="campora-heading mb-3">Find Your Next Course</h5>
+                        <p class="text-muted small">Browse colleges and courses, and reach out when you find the right fit.</p>
+                        <a href="{% url 'core:colleges' %}" class="btn btn-primary">Browse Colleges</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Your Enquiries</h5>
+                        <div class="campora-empty-state">
+                            <i data-lucide="clock"></i>
+                            <p class="mb-0">Enquiry tracking is coming in a future update — for now, enquiries can be submitted from a college's course listing.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

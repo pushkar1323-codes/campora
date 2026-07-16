@@ -97,6 +97,19 @@ DATABASES = {
 
 
 # -----------------------------------------------------------------------
+# CUSTOM USER MODEL
+# Campora uses one custom user model with role-based access (Super Admin,
+# College Admin, College Staff, Student) instead of separate auth systems.
+# See accounts/models.py. Must be set before any migrations reference it.
+# -----------------------------------------------------------------------
+AUTH_USER_MODEL = "accounts.User"
+
+LOGIN_URL = "accounts:login"
+LOGIN_REDIRECT_URL = "dashboard:home"
+LOGOUT_REDIRECT_URL = "core:home"
+
+
+# -----------------------------------------------------------------------
 # PASSWORD VALIDATION
 # -----------------------------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [

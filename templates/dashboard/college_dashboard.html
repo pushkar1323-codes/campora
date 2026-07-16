@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}{{ college.name }} Dashboard - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="campora-heading mb-1">{{ college.name }}</h1>
+            <p class="text-muted mb-0">Welcome back, {{ request.user.first_name|default:request.user.username }} ({{ request.user.get_role_display }})</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'dashboard:enquiry_list' %}" class="btn btn-outline-primary">
+                <i data-lucide="inbox" style="width:16px;height:16px;"></i>
+                View All Enquiries
+            </a>
+            {% if request.user.role == 'COLLEGE_ADMIN' %}
+            <a href="{% url 'dashboard:manage_staff' %}" class="btn btn-primary">
+                <i data-lucide="users" style="width:16px;height:16px;"></i>
+                Manage Staff
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row g-3 mb-5">
+            <div class="col-6 col-md-3">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.course_count }}</h3>
+                    <p class="small text-muted mb-0">Total Courses</p>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.active_course_count }}</h3>
+                    <p class="small text-muted mb-0">Active Courses</p>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.enquiry_count }}</h3>
+                    <p class="small text-muted mb-0">Total Enquiries</p>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.staff_count }}</h3>
+                    <p class="small text-muted mb-0">Staff Members</p>
+                </div></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="campora-heading mb-0">Recent Enquiries</h5>
+                    {% if enquiries %}
+                    <a href="{% url 'dashboard:enquiry_list' %}" class="small">View All &rarr;</a>
+                    {% endif %}
+                </div>
+                {% if enquiries %}
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead><tr><th>Name</th><th>Course</th><th>Status</th><th>Submitted</th><th></th></tr></thead>
+                        <tbody>
+                        {% for enquiry in enquiries %}
+                            <tr>
+                                <td>{{ enquiry.full_name }}</td>
+                                <td>{{ enquiry.course.course_name }}</td>
+                                <td><span class="badge bg-primary-subtle text-primary">{{ enquiry.get_status_display }}</span></td>
+                                <td>{{ enquiry.created_at|date:"M d, Y" }}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'dashboard:enquiry_detail' enquiry.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="campora-empty-state">
+                    <i data-lucide="inbox"></i>
+                    <p class="mb-0">No enquiries yet for {{ college.name }}.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

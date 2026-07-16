@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Platform Dashboard - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="campora-heading mb-1">Platform Dashboard</h1>
+            <p class="text-muted mb-0">Welcome back, {{ request.user.first_name|default:request.user.username }}.</p>
+        </div>
+        <a href="{% url 'dashboard:enquiry_list' %}" class="btn btn-outline-primary">
+            <i data-lucide="inbox" style="width:16px;height:16px;"></i>
+            View All Enquiries
+        </a>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row g-3 mb-5">
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.total_colleges }}</h3>
+                    <p class="small text-muted mb-0">Total Colleges</p>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.approved_colleges }}</h3>
+                    <p class="small text-muted mb-0">Approved</p>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.pending_colleges }}</h3>
+                    <p class="small text-muted mb-0">Pending Approval</p>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.total_courses }}</h3>
+                    <p class="small text-muted mb-0">Total Courses</p>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.total_enquiries }}</h3>
+                    <p class="small text-muted mb-0">Total Enquiries</p>
+                </div></div>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card h-100 text-center"><div class="card-body">
+                    <h3 class="campora-heading h4 mb-0">{{ stats.total_students }}</h3>
+                    <p class="small text-muted mb-0">Students</p>
+                </div></div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="campora-heading mb-3">Pending College Approvals</h5>
+                {% if pending_colleges %}
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead><tr><th>College</th><th>City</th><th>State</th><th>Submitted</th><th class="text-end">Actions</th></tr></thead>
+                        <tbody>
+                        {% for college in pending_colleges %}
+                            <tr>
+                                <td>{{ college.name }}</td>
+                                <td>{{ college.city }}</td>
+                                <td>{{ college.state }}</td>
+                                <td>{{ college.created_at|date:"M d, Y" }}</td>
+                                <td class="text-end">
+                                    <form method="post" action="{% url 'dashboard:approve_college' college.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-primary">Approve</button>
+                                    </form>
+                                    <form method="post" action="{% url 'dashboard:reject_college' college.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="campora-empty-state">
+                    <i data-lucide="check-circle"></i>
+                    <p class="mb-0">No colleges are pending approval right now.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5 class="campora-heading mb-3">All Colleges</h5>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead><tr><th>College</th><th>Status</th><th>Courses</th><th class="text-end">Actions</th></tr></thead>
+                        <tbody>
+                        {% for college in all_colleges %}
+                            <tr>
+                                <td>{{ college.name }}</td>
+                                <td>
+                                    <span class="badge
+                                        {% if college.status == 'APPROVED' %}bg-success-subtle text-success
+                                        {% elif college.status == 'PENDING' %}bg-warning-subtle text-warning
+                                        {% elif college.status == 'SUSPENDED' %}bg-danger-subtle text-danger
+                                        {% else %}bg-secondary-subtle text-secondary{% endif %}">
+                                        {{ college.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ college.active_course_count }}</td>
+                                <td class="text-end">
+                                    {% if college.status == 'APPROVED' %}
+                                    <form method="post" action="{% url 'dashboard:suspend_college' college.pk %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-warning">Suspend</button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

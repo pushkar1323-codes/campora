@@ -1,0 +1,29 @@
+{% load static %}
+<div class="col-md-6 col-lg-4">
+    <a href="{% url 'core:college_detail' college.slug %}" class="text-decoration-none">
+        <div class="card h-100">
+            {% if college.logo %}
+            <img src="{{ college.logo.url }}" class="card-img-top" alt="{{ college.name }} logo" style="height:140px;object-fit:cover;">
+            {% else %}
+            <div class="d-flex align-items-center justify-content-center bg-section-light" style="height:140px;">
+                <i data-lucide="landmark" class="text-primary" style="width:48px;height:48px;"></i>
+            </div>
+            {% endif %}
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title campora-heading text-dark">{{ college.name }}</h5>
+                {% if college.city or college.state %}
+                <p class="mb-2 small text-muted">
+                    <i data-lucide="map-pin" style="width:14px;height:14px;"></i>
+                    {{ college.city }}{% if college.city and college.state %}, {% endif %}{{ college.state }}
+                </p>
+                {% endif %}
+                {% if college.short_description %}
+                <p class="card-text text-muted flex-grow-1">{{ college.short_description }}</p>
+                {% endif %}
+                <span class="badge bg-primary-subtle text-primary align-self-start mt-2">
+                    {{ college.course_count|default:college.active_course_count }} Active Course{{ college.active_course_count|pluralize }}
+                </span>
+            </div>
+        </div>
+    </a>
+</div>

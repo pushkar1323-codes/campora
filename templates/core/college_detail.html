@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block title %}{{ college.name }} - Campora{% endblock %}
+
+{% block content %}
+
+<!-- Cover -->
+<section class="p-0">
+    {% if college.cover_image %}
+    <div style="height:280px;background-image:url('{{ college.cover_image.url }}');background-size:cover;background-position:center;"></div>
+    {% else %}
+    <div class="d-flex align-items-center justify-content-center text-white"
+         style="height:220px;background:linear-gradient(135deg, var(--brand-primary), #1d4ed8);">
+        <i data-lucide="landmark" style="width:72px;height:72px;opacity:0.85;"></i>
+    </div>
+    {% endif %}
+</section>
+
+<section class="bg-section-light">
+    <div class="container py-4">
+        <div class="row align-items-center gy-3">
+            <div class="col-auto">
+                {% if college.logo %}
+                <img src="{{ college.logo.url }}" alt="{{ college.name }} logo"
+                     class="rounded-circle border border-3 border-white shadow-sm"
+                     style="width:88px;height:88px;object-fit:cover;margin-top:-60px;background:#fff;">
+                {% else %}
+                <div class="rounded-circle border border-3 border-white shadow-sm bg-white d-flex align-items-center justify-content-center"
+                     style="width:88px;height:88px;margin-top:-60px;">
+                    <i data-lucide="landmark" class="text-primary" style="width:36px;height:36px;"></i>
+                </div>
+                {% endif %}
+            </div>
+            <div class="col">
+                <h1 class="campora-heading mb-1">{{ college.name }}</h1>
+                {% if college.city or college.state %}
+                <p class="text-muted mb-0">
+                    <i data-lucide="map-pin" style="width:16px;height:16px;"></i>
+                    {{ college.city }}{% if college.city and college.state %}, {% endif %}{{ college.state }}
+                </p>
+                {% endif %}
+            </div>
+            <div class="col-auto">
+                <a href="{% url 'core:colleges' %}" class="btn btn-outline-primary btn-sm">
+                    <i data-lucide="arrow-left" style="width:14px;height:14px;"></i>
+                    All Colleges
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row g-4">
+
+            <!-- Main content -->
+            <div class="col-lg-8">
+
+                {% if college.description %}
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">About {{ college.name }}</h5>
+                        <p class="text-muted mb-0">{{ college.description }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Available Courses</h5>
+                        {% if courses %}
+                        <div class="row g-4">
+                            {% for course in courses %}
+                                {% include 'partials/course_card.html' %}
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="campora-empty-state">
+                            <i data-lucide="book-x"></i>
+                            <p class="mb-0">No courses are currently listed for this college.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Gallery placeholder -->
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Campus Gallery</h5>
+                        <div class="campora-empty-state">
+                            <i data-lucide="image"></i>
+                            <p class="mb-0">Photo gallery coming soon.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Contact Information</h5>
+                        {% if college.address %}
+                        <div class="d-flex align-items-start mb-3">
+                            <i data-lucide="map-pin" class="text-primary flex-shrink-0 me-2" style="width:18px;height:18px;"></i>
+                            <span class="text-muted small">{{ college.address }}</span>
+                        </div>
+                        {% endif %}
+                        {% if college.phone %}
+                        <div class="d-flex align-items-start mb-3">
+                            <i data-lucide="phone" class="text-primary flex-shrink-0 me-2" style="width:18px;height:18px;"></i>
+                            <a href="tel:{{ college.phone }}" class="text-muted small text-decoration-none">{{ college.phone }}</a>
+                        </div>
+                        {% endif %}
+                        {% if college.email %}
+                        <div class="d-flex align-items-start mb-3">
+                            <i data-lucide="mail" class="text-primary flex-shrink-0 me-2" style="width:18px;height:18px;"></i>
+                            <a href="mailto:{{ college.email }}" class="text-muted small text-decoration-none">{{ college.email }}</a>
+                        </div>
+                        {% endif %}
+                        {% if college.website %}
+                        <div class="d-flex align-items-start">
+                            <i data-lucide="globe" class="text-primary flex-shrink-0 me-2" style="width:18px;height:18px;"></i>
+                            <a href="{{ college.website }}" target="_blank" rel="noopener" class="text-muted small text-decoration-none">{{ college.website }}</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">At a Glance</h5>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted small">Active Courses</span>
+                            <span class="fw-semibold">{{ courses|length }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">Status</span>
+                            <span class="badge bg-success-subtle text-success">Verified</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}
