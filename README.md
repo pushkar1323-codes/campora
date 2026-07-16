@@ -70,12 +70,21 @@ Implemented so far:
   sees every enquiry; College Admin/Staff see only their own college's
   enquiries (ownership-enforced — another college's enquiry 404s rather
   than 403s, so its existence isn't even confirmed). Every row/detail page
-  always shows the associated College and Course. Live search/filter/sort
-  is intentionally deferred to Phase 6.
+  always shows the associated College and Course.
+- **Search, Filter & Sorting** (Phase 6): the enquiry listing now supports
+  live search (student name, mobile, email, college or course — matches
+  any of them), filters (college — Platform Admin only, course, gender,
+  status, admission year), and sortable columns (student name, college,
+  course, submission date, either direction). All combine together (AND),
+  pagination preserves the active search/filter/sort across pages, and a
+  malformed or hand-edited querystring degrades gracefully to "no filter"
+  instead of erroring. College Admin/Staff never get a college filter and
+  their course choices are restricted to their own college — the same
+  ownership rule the rest of the dashboard follows.
 
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
-Enquiry search/filter/sort (Phase 6), edit (Phase 7), delete/restore
-(Phase 8), full analytics dashboard, CSV/Excel export, AWS deployment.
+Enquiry edit (Phase 7), delete/restore (Phase 8), full analytics
+dashboard, CSV/Excel export, AWS deployment.
 
 ## Architecture & Roles
 
@@ -284,9 +293,30 @@ Not yet implemented.
       clamp to 200 instead of erroring — this caught and fixed a real
       `EmptyPage` bug in the initial pagination template); all previously
       working public and dashboard routes re-verified with no regressions
-- [ ] Search, Filters, Sort on Enquiries (Phase 6); Edit (Phase 7);
-      Delete/Restore (Phase 8); full analytics dashboard; CSV export —
-      not yet built (future phases)
+- [x] Phase 6: Search, Filter & Sorting verified end-to-end via Django's
+      test client — search matched correctly on student name, email and
+      college name substrings (results cross-checked against expected
+      matches); college filter, course filter, gender filter, status
+      filter and admission-year filter each verified independently
+      (every returned row confirmed to match the filter); combined
+      filters correctly AND together; sort verified in both directions
+      for student name, college, course and submission date (result
+      order cross-checked against Python's own `sorted()`); a malformed
+      querystring (`admission_year=notanumber&sort=bogus&dir=bogus&
+      gender=Z&status=BOGUS`) degrades to "no filter" instead of
+      erroring (200, full unfiltered count); pagination combined with an
+      active filter preserves that filter across pages (verified with
+      25 bulk-created records, second-page results still 100% matching
+      the filter, and the page-2 querystring correctly excludes `page`
+      but keeps the filter); College Admin's filter form was confirmed
+      to have no `college` field at all, and injecting a `?college=`
+      query param for another college was confirmed to have zero effect
+      (still scoped to their own college — ownership rule holds);
+      Phase 4/Phase 5 regression-checked with no breakage (own-college
+      detail 200, cross-college detail 404, Student 403, anonymous 302,
+      Home/Colleges routes 200)
+- [ ] Edit (Phase 7); Delete/Restore (Phase 8); full analytics dashboard;
+      CSV export — not yet built (future phases)
 
 ## Future Enhancements
 

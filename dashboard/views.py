@@ -15,6 +15,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import get_staff_college, role_required
@@ -22,6 +23,7 @@ from accounts.forms import StaffCreationForm
 from accounts.models import User
 from admissions.models import Enquiry
 from courses.models import College, Course
+from .forms import SORT_FIELD_MAP, EnquiryFilterForm
 
 logger = logging.getLogger(__name__)
 
@@ -147,19 +149,28 @@ def student_dashboard(request):
 
 @role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
 def enquiry_list(request):
-    """Phase 5: professional enquiry listing, paginated, always showing
-    the associated College and Course for every row.
-
-    Scope note: this is the *listing* only — search, filter and sort
-    (by student/college/course/gender/status/admission year) are Phase 6
-    (PROMPTS_PART_2.docx). No query-string filtering is applied here beyond
-    pagination, so this view is safe to extend in Phase 6 without
-    restructuring.
+    """Phase 5 listing + Phase 6 search, filter & sort, paginated, always
+    showing the associated College and Course for every row.
 
     College ownership: a Platform Admin sees every enquiry; a College
     Admin/Staff user only ever sees their own college's enquiries, scoped
     via get_staff_college(request.user) — never a college id taken from
-    the URL or query string, matching the rest of this app.
+    the URL or query string, matching the rest of this app. The same rule
+    applies to the Phase 6 filters themselves: EnquiryFilterForm drops the
+    "college" filter entirely for a College Admin/Staff user and restricts
+    their "course" choices to their own college (see dashboard/forms.py).
+
+    Search (`q`): case-insensitive substring match across student name,
+    mobile, email, college name and course name (OR'd together).
+    Filters: college (Platform Admin only), course, gender, status,
+    admission year — all AND'd with search and each other.
+    Sort: student / college / course / submission date, either direction
+    (`sort` + `dir` query params); defaults to submission date, newest
+    first, matching the model's default ordering.
+
+    Every filter/sort/page link in the template is built by preserving the
+    current querystring (see `querystring` in context), so paging through
+    results or re-sorting never silently drops an active search or filter.
     """
     if request.user.role == User.Role.SUPER_ADMIN:
         college = None
@@ -171,14 +182,77 @@ def enquiry_list(request):
             return redirect("core:home")
         enquiries = Enquiry.objects.select_related("course", "college").filter(college=college)
 
+    filter_form = EnquiryFilterForm(request.GET, staff_college=college)
+    filter_form.is_valid()  # triggers per-field cleaning; result intentionally unused, see form docstring
+    cleaned = filter_form.cleaned_data
+
+    search_term = cleaned.get("q")
+    if search_term:
+        enquiries = enquiries.filter(
+            Q(full_name__icontains=search_term)
+            | Q(mobile__icontains=search_term)
+            | Q(email__icontains=search_term)
+            | Q(college__name__icontains=search_term)
+            | Q(course__course_name__icontains=search_term)
+        )
+
+    if college is None and cleaned.get("college"):
+        enquiries = enquiries.filter(college=cleaned["college"])
+    if cleaned.get("course"):
+        enquiries = enquiries.filter(course=cleaned["course"])
+    if cleaned.get("gender"):
+        enquiries = enquiries.filter(gender=cleaned["gender"])
+    if cleaned.get("status"):
+        enquiries = enquiries.filter(status=cleaned["status"])
+    if cleaned.get("admission_year"):
+        enquiries = enquiries.filter(admission_year=cleaned["admission_year"])
+
+    current_sort = cleaned.get("sort") or "submitted"
+    current_dir = cleaned.get("dir") or "desc"
+    order_field = SORT_FIELD_MAP.get(current_sort, "created_at")
+    enquiries = enquiries.order_by(order_field if current_dir == "asc" else f"-{order_field}")
+
     paginator = Paginator(enquiries, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
+
+    # Querystring with 'page' stripped, reused by every pagination link so
+    # changing pages never drops the active search/filter/sort.
+    base_query = request.GET.copy()
+    base_query.pop("page", None)
+    querystring = base_query.urlencode()
+
+    # A ready-to-use link (sort + toggled dir) for each sortable column
+    # header. Clicking a column that's already active flips direction;
+    # clicking a new column starts at ascending (submission date starts
+    # descending — newest first — to match the default).
+    sort_links = {}
+    for key in SORT_FIELD_MAP:
+        link_query = base_query.copy()
+        if current_sort == key:
+            link_query["dir"] = "desc" if current_dir == "asc" else "asc"
+        else:
+            link_query["dir"] = "desc" if key == "submitted" else "asc"
+        link_query["sort"] = key
+        sort_links[key] = f"?{link_query.urlencode()}"
 
     context = {
         "college": college,
         "page_obj": page_obj,
         "enquiries": page_obj.object_list,
         "total_count": paginator.count,
+        "filter_form": filter_form,
+        "querystring": querystring,
+        "current_sort": current_sort,
+        "current_dir": current_dir,
+        "sort_links": sort_links,
+        "is_filtered": bool(
+            search_term
+            or cleaned.get("college")
+            or cleaned.get("course")
+            or cleaned.get("gender")
+            or cleaned.get("status")
+            or cleaned.get("admission_year")
+        ),
     }
     return render(request, "dashboard/enquiry_list.html", context)
 

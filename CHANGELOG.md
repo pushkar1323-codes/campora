@@ -383,3 +383,92 @@ restructuring this view.
     above).
   - Re-verified Home/Colleges/College Detail/Courses/Contact and both
     existing dashboards all still return `200` — no regressions.
+
+## [0.7.0] - Phase 6: Search, Filter & Sorting
+
+### Added
+- `dashboard/forms.py` (new file): `EnquiryFilterForm`, a plain (non-Model)
+  `Form` bound to `request.GET`, used by `dashboard/views.py::enquiry_list`
+  to search, filter and sort the Phase 5 enquiry listing.
+  - Fields: `q` (search), `college` (Platform Admin only), `course`,
+    `gender`, `status`, `admission_year`, `sort`, `dir`.
+  - **College ownership carries through to filtering**: when instantiated
+    with `staff_college=<their college>`, the `college` field is dropped
+    entirely from the form (a College Admin/Staff user's scope is always
+    decided server-side, never via the querystring) and the `course`
+    field's choices are restricted to that college's own courses only.
+  - **Fails safe on bad input**: every field is optional, and this form is
+    deliberately read via `cleaned_data.get(...)` rather than gated on
+    `is_valid()`, so one malformed query param (e.g. `admission_year=abc`)
+    never breaks the whole page — it's simply ignored for that field only,
+    per Django's normal per-field cleaning behaviour.
+- `dashboard/views.py::enquiry_list` extended (same view, same URL, no
+  breaking change to Phase 5):
+  - **Search** (`q`): case-insensitive substring match, OR'd across
+    student name, mobile, email, college name and course name.
+  - **Filters**: college (Platform Admin only — a College Admin/Staff
+    user's own-college scoping from Phase 5 is untouched), course,
+    gender, status, admission year. All filters AND together with each
+    other and with search.
+  - **Sort**: student name / college / course / submission date, either
+    direction via `sort`/`dir` query params. Defaults to submission date,
+    newest first (matching the pre-Phase-6 default ordering), so an
+    unfiltered/unsorted visit to the page looks identical to before.
+  - **Pagination preserved**: the current querystring (minus `page`) is
+    built once and reused for every pagination link and every sortable
+    column-header link, so navigating pages or re-sorting never silently
+    drops an active search or filter.
+- `templates/dashboard/enquiry_list.html`:
+  - New filter/search bar (Bootstrap 5, `GET` form) above the results
+    table — search box, College dropdown (Platform Admin view only),
+    Course/Gender/Status dropdowns, Admission Year input, Search button,
+    and a "clear filters" button shown only when a filter is active.
+  - Student Name / College / Course / Submitted column headers are now
+    sortable links with a Lucide chevron-up/chevron-down indicator on the
+    currently active sort column.
+  - Pagination links (Previous/page-numbers/Next) now append the
+    preserved querystring so they no longer silently drop filters.
+  - Empty state now distinguishes "no enquiries exist at all" (Phase 5
+    behaviour, unchanged) from "no results match the current
+    search/filters" (new — includes a clear-filters link).
+  - Header subtitle now shows a "filtered" badge and the *filtered* count
+    when any search/filter is active.
+
+### Changed
+- No changes to `dashboard/urls.py`, `admissions/*`, `courses/*`,
+  `accounts/*`, or any Phase 1–5 template other than
+  `enquiry_list.html` — this phase only extends the existing Phase 5
+  listing view and its template.
+
+### Testing performed
+- `manage.py check` — clean; `makemigrations --check --dry-run` — no
+  drift (this phase adds no models/migrations).
+- Fresh SQLite migrate + `seed_data`, then via Django's test client:
+  - Search verified independently for student name, email and college
+    name substrings — every returned row cross-checked to actually
+    contain the search term.
+  - Each filter (college, course, gender, status, admission year)
+    verified independently — every returned row cross-checked against
+    the filter value; a combined filter (status + gender) correctly
+    AND'd (returned the expected empty set for a combination with no
+    matching seed data).
+  - Sort verified in both directions for all 4 sortable fields —
+    resulting order cross-checked against Python's own `sorted()`.
+  - Malformed querystring
+    (`admission_year=notanumber&sort=bogus&dir=bogus&gender=Z&status=BOGUS`)
+    correctly falls back to the unfiltered, default-sorted listing (200,
+    not a 500) — confirms the fails-safe design of `EnquiryFilterForm`.
+  - Pagination + filter interaction: bulk-created 25 extra enquiries for
+    one course to force a second filtered page; page 2 of the
+    course-filtered results — 200, every row still matching the course
+    filter, and the pagination querystring correctly carried `course=`
+    while excluding the stale `page=`.
+  - College Admin's filter form confirmed to have **no** `college` field
+    at all (`'college' in form.fields` — `False`); injecting
+    `?college=<another college's id>` via the querystring confirmed to
+    have zero effect — results remained 100% scoped to their own college
+    (the Phase 5 ownership rule holds under Phase 6's new filters).
+  - Phase 4/Phase 5 regression pass: own-college detail (200),
+    cross-college detail (404), Student role (403), anonymous (302),
+    and Home/Colleges public routes (200) all re-verified with no
+    breakage.
