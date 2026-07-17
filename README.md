@@ -57,7 +57,7 @@ Implemented so far:
   (grouped by college), Contact (platform-level, validated enquiry form)
 - Reusable `course_card` / `college_card` template partials
 - Structured logging configured (console handler, per-app loggers)
-- **Admission Enquiry submission** (Phase 4): students submit a course-
+- **Admission Enquiry submission** : students submit a course-
   specific enquiry directly from a college's "Enquire Now" button — no
   College/Course dropdown to fill in, since the course (and its college)
   is fixed by the page the student came from. Works anonymously per
@@ -65,13 +65,13 @@ Implemented so far:
   account when one is signed in. Server-side validated (Django Forms,
   reusing the existing field validators), Post/Redirect/Get, with a
   confirmation page showing a reference number.
-- **Enquiry Management** (Phase 5): staff-facing listing (paginated,
+- **Enquiry Management** : staff-facing listing (paginated,
   20/page) and detail views under `/dashboard/enquiries/`. Platform Admin
   sees every enquiry; College Admin/Staff see only their own college's
   enquiries (ownership-enforced — another college's enquiry 404s rather
   than 403s, so its existence isn't even confirmed). Every row/detail page
   always shows the associated College and Course.
-- **Search, Filter & Sorting** (Phase 6): the enquiry listing now supports
+- **Search, Filter & Sorting** : the enquiry listing now supports
   live search (student name, mobile, email, college or course — matches
   any of them), filters (college — Platform Admin only, course, gender,
   status, admission year), and sortable columns (student name, college,
@@ -81,7 +81,7 @@ Implemented so far:
   instead of erroring. College Admin/Staff never get a college filter and
   their course choices are restricted to their own college — the same
   ownership rule the rest of the dashboard follows.
-- **Update Module** (Phase 7): staff can now edit any field on an
+- **Update Module** : staff can now edit any field on an
   enquiry — including reassigning its College and Course — from
   `/dashboard/enquiries/<id>/edit/`. The College and Course dropdowns are
   a genuine pair: picking a College narrows the Course dropdown (a small
@@ -99,7 +99,7 @@ Implemented so far:
   server-set initial value and silently ignore submitted data. Success
   and validation-error messages both surface via the existing Bootstrap
   alert / Django-messages integration.
-- **Delete & Restore** (Phase 8): enquiries are soft-deleted by default —
+- **Delete & Restore** : enquiries are soft-deleted by default —
   "delete" (from the enquiry list or detail page, with a confirm prompt)
   moves an enquiry to a **Recycle Bin** (`/dashboard/enquiries/recycle-bin/`)
   rather than removing it, so there is never a one-click, irreversible
@@ -179,7 +179,7 @@ verification details).
     mask the permission error.
 - **College ownership**, layered on top of role checks, is enforced by
   `accounts/decorators.py::get_staff_college` everywhere a College
-  Admin/Staff user touches data — see Phases 4–8 above for the many
+  Admin/Staff user touches data — see above for the many
   cross-college-access tests (all 404, never 403, so another college's
   data is never even confirmed to exist).
 
@@ -269,7 +269,7 @@ college_admission/
 This phase introduces `accounts.User` as `AUTH_USER_MODEL`. Django does
 not support switching to a custom user model once migrations have been
 applied against the default one — so if you previously ran `migrate` on
-this project (Phases 1–3), **you must drop and recreate your local
+this project , **you must drop and recreate your local
 database** before running `migrate` again. This is a one-time step; there
 is no real production data to lose at this stage (only seeded/test data).
 
@@ -307,25 +307,25 @@ Defined in `.env` (see `.env.example`):
   suspend colleges, see platform-wide stats, and browse **every**
   college's enquiries via the same `/dashboard/enquiries/` listing.
 
-Search/filter/sort (Phase 6), edit (Phase 7), and delete/restore
-(Phase 8) are all live at `/dashboard/enquiries/` and its Recycle Bin.
+Search/filter/sort , edit , and delete/restore
+ are all live at `/dashboard/enquiries/` and its Recycle Bin.
 
 ## AWS Deployment
 
-Planned for Phases 13–14: EC2 + Gunicorn + Nginx + Amazon RDS + EBS + S3.
+Planned : EC2 + Gunicorn + Nginx + Amazon RDS + EBS + S3.
 Not yet implemented.
 
 ## Testing Checklist
 
-- [x] Phase 1: `python manage.py check` passes, static files collect, all
+- [x] `python manage.py check` passes, static files collect, all
       routes return correct HTTP responses, base template renders correctly
-- [x] Phase 2: Migrations apply cleanly (`courses.0001_initial`,
+- [x] Migrations apply cleanly (`courses.0001_initial`,
       `admissions.0001_initial`); `seed_data` command is idempotent; model
       validators correctly reject invalid mobile numbers, out-of-range
       percentages, and past admission years; soft-delete manager correctly
       excludes deleted records by default; Django admin verified end-to-end
       (login, Course list, Enquiry list including soft-deleted rows)
-- [x] Phase 3: Home/About/Courses/Contact routes all return 200; Courses
+- [x] Home/About/Courses/Contact routes all return 200; Courses
       page correctly lists only active courses (5 of 6 seeded, excluding
       the inactive Diploma); Contact form rejects invalid input (6 inline
       errors shown) and accepts valid input (302 redirect, success message
@@ -347,7 +347,7 @@ Not yet implemented.
       college and confirming the created account was scoped to the
       *actor's* college regardless); `seed_data` idempotency re-confirmed
       after the rewrite
-- [x] Phase 4: Admission Enquiry submission verified end-to-end via
+- [x] Admission Enquiry submission verified end-to-end via
       Django's test client — GET the enquiry form for a live course
       (200); valid POST creates an `Enquiry` with `college` correctly
       auto-derived from the course's college, then redirects (302) to a
@@ -356,7 +356,7 @@ Not yet implemented.
       enquiry URLs for an inactive course or a nonexistent course both
       correctly return 404; Home/Colleges/College Detail/Courses/Contact
       re-verified with no regressions
-- [x] Phase 5: Enquiry Management verified end-to-end via Django's test
+- [x] Enquiry Management verified end-to-end via Django's test
       client for all 3 staff roles — Platform Admin sees every enquiry
       (count cross-checked against the DB total, 200); College Admin/Staff
       see only their own college's enquiries (count cross-checked, 200);
@@ -368,7 +368,7 @@ Not yet implemented.
       clamp to 200 instead of erroring — this caught and fixed a real
       `EmptyPage` bug in the initial pagination template); all previously
       working public and dashboard routes re-verified with no regressions
-- [x] Phase 6: Search, Filter & Sorting verified end-to-end via Django's
+- [x] Search, Filter & Sorting verified end-to-end via Django's
       test client — search matched correctly on student name, email and
       college name substrings (results cross-checked against expected
       matches); college filter, course filter, gender filter, status
@@ -390,7 +390,7 @@ Not yet implemented.
       Phase 4/Phase 5 regression-checked with no breakage (own-college
       detail 200, cross-college detail 404, Student 403, anonymous 302,
       Home/Colleges routes 200)
-- [x] Phase 7: Update Module verified end-to-end via Django's test client
+- [x] Update Module verified end-to-end via Django's test client
       — Platform Admin's edit form confirmed to have an enabled `college`
       field pre-selected to the enquiry's current college; College
       Admin/Staff's form confirmed to have `college` restricted to just
@@ -413,7 +413,7 @@ Not yet implemented.
       just CSRF rejection); Student (403) and anonymous (302) both
       re-confirmed blocked; Phase 4/5/6 regression pass (public routes,
       enquiry list + search, enquiry detail) all still 200
-- [x] Phase 8: Delete & Restore verified end-to-end via Django's test
+- [x] Delete & Restore verified end-to-end via Django's test
       client — a GET to the delete URL confirmed to be a no-op (no state
       change, matching the approve/reject/suspend-college convention
       already used elsewhere in this app); a POST soft-deletes (flips
@@ -438,7 +438,7 @@ Not yet implemented.
       (302) both re-confirmed blocked from the Recycle Bin; full
       Phase 4–7 regression pass (public routes, enquiry list, sort,
       enquiry edit) all still 200
-- [x] Phase 9: Authentication & Authorization — **verification pass**,
+- [x] Authentication & Authorization — **verification pass**,
       no code changes (already fully implemented in the Platform
       Refactor). Verified via Django's test client: login with correct
       credentials authenticates and redirects to the role-appropriate
@@ -462,12 +462,7 @@ Not yet implemented.
       confirming the intentionally-public Version 1.0 scope wasn't
       accidentally locked down; CSRF protection confirmed active on the
       login form itself (POST without a token → 403)
-- [ ] Full analytics dashboard; CSV export — not yet built (future
-      phases)
-
-## Future Enhancements
-
-SMS notifications, document uploads, advanced reporting (see `PROJECT_BRAIN.docx`).
+- [ ] Full analytics dashboard; CSV export — not yet built
 
 ## Contributors
 
