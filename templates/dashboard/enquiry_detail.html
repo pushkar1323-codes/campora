@@ -8,10 +8,24 @@
             <h1 class="campora-heading mb-1">Enquiry #{{ enquiry.pk }}</h1>
             <p class="text-muted mb-0">{{ enquiry.full_name }} &middot; {{ enquiry.course.course_name }} at {{ enquiry.college.name }}</p>
         </div>
-        <a href="{% url 'dashboard:enquiry_list' %}" class="btn btn-outline-primary">
-            <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
-            Back to Enquiries
-        </a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'dashboard:enquiry_edit' enquiry.pk %}" class="btn btn-primary">
+                <i data-lucide="pencil" style="width:16px;height:16px;"></i>
+                Edit
+            </a>
+            <form method="post" action="{% url 'dashboard:enquiry_delete' enquiry.pk %}"
+                  onsubmit="return confirm('Move this enquiry to the Recycle Bin? You can restore it later.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger">
+                    <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+                    Move to Recycle Bin
+                </button>
+            </form>
+            <a href="{% url 'dashboard:enquiry_list' %}" class="btn btn-outline-primary">
+                <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+                Back to Enquiries
+            </a>
+        </div>
     </div>
 </section>
 

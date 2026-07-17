@@ -14,17 +14,23 @@
                 {% if is_filtered %}<span class="badge bg-secondary-subtle text-secondary ms-1">filtered</span>{% endif %}
             </p>
         </div>
-        {% if college %}
-        <a href="{% url 'dashboard:college' %}" class="btn btn-outline-primary">
-            <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
-            Back to Dashboard
-        </a>
-        {% else %}
-        <a href="{% url 'dashboard:platform' %}" class="btn btn-outline-primary">
-            <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
-            Back to Dashboard
-        </a>
-        {% endif %}
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'dashboard:enquiry_recycle_bin' %}" class="btn btn-outline-secondary">
+                <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+                Recycle Bin
+            </a>
+            {% if college %}
+            <a href="{% url 'dashboard:college' %}" class="btn btn-outline-primary">
+                <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+                Back to Dashboard
+            </a>
+            {% else %}
+            <a href="{% url 'dashboard:platform' %}" class="btn btn-outline-primary">
+                <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+                Back to Dashboard
+            </a>
+            {% endif %}
+        </div>
     </div>
 </section>
 
@@ -131,6 +137,13 @@
                                     <a href="{% url 'dashboard:enquiry_detail' enquiry.pk %}" class="btn btn-sm btn-outline-primary">
                                         View
                                     </a>
+                                    <form method="post" action="{% url 'dashboard:enquiry_delete' enquiry.pk %}" class="d-inline"
+                                          onsubmit="return confirm('Move this enquiry to the Recycle Bin?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Move to Recycle Bin">
+                                            <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                         {% endfor %}

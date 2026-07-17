@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% block title %}Edit Enquiry #{{ enquiry.pk }} - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="campora-heading mb-1">Edit Enquiry #{{ enquiry.pk }}</h1>
+            <p class="text-muted mb-0">{{ enquiry.full_name }}</p>
+        </div>
+        <a href="{% url 'dashboard:enquiry_detail' enquiry.pk %}" class="btn btn-outline-primary">
+            <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+            Cancel
+        </a>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-9">
+                <div class="card">
+                    <div class="card-body">
+
+                        <form method="post" novalidate id="enquiry-edit-form">
+                            {% csrf_token %}
+
+                            <h5 class="campora-heading mb-3">College &amp; Course</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label for="{{ form.college.id_for_label }}" class="form-label">
+                                        {{ form.college.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.college }}
+                                    {% if form.college.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.college.errors|join:", " }}</div>
+                                    {% endif %}
+                                    {% if college %}
+                                    <div class="form-text">Locked to your college.</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="{{ form.course.id_for_label }}" class="form-label">
+                                        {{ form.course.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.course }}
+                                    {% if form.course.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.course.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                {% if form.non_field_errors %}
+                                <div class="col-12">
+                                    <div class="text-danger small" role="alert">{{ form.non_field_errors|join:", " }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <h5 class="campora-heading mb-3">Applicant Details</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label for="{{ form.full_name.id_for_label }}" class="form-label">
+                                        {{ form.full_name.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.full_name }}
+                                    {% if form.full_name.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.full_name.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="{{ form.father_name.id_for_label }}" class="form-label">
+                                        {{ form.father_name.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.father_name }}
+                                    {% if form.father_name.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.father_name.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="{{ form.email.id_for_label }}" class="form-label">
+                                        {{ form.email.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.email }}
+                                    {% if form.email.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.email.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="{{ form.mobile.id_for_label }}" class="form-label">
+                                        {{ form.mobile.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.mobile }}
+                                    {% if form.mobile.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.mobile.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-12">
+                                    <label for="{{ form.address.id_for_label }}" class="form-label">
+                                        {{ form.address.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.address }}
+                                    {% if form.address.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.address.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="{{ form.dob.id_for_label }}" class="form-label">
+                                        {{ form.dob.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.dob }}
+                                    {% if form.dob.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.dob.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="{{ form.gender.id_for_label }}" class="form-label">
+                                        {{ form.gender.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.gender }}
+                                    {% if form.gender.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.gender.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="{{ form.admission_year.id_for_label }}" class="form-label">
+                                        {{ form.admission_year.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.admission_year }}
+                                    {% if form.admission_year.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.admission_year.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <h5 class="campora-heading mb-3">Academic Details</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-8">
+                                    <label for="{{ form.qualification.id_for_label }}" class="form-label">
+                                        {{ form.qualification.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.qualification }}
+                                    {% if form.qualification.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.qualification.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="{{ form.percentage.id_for_label }}" class="form-label">
+                                        {{ form.percentage.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.percentage }}
+                                    {% if form.percentage.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.percentage.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <h5 class="campora-heading mb-3">Staff-Only</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label for="{{ form.status.id_for_label }}" class="form-label">
+                                        {{ form.status.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.status }}
+                                    {% if form.status.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.status.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label for="{{ form.staff_notes.id_for_label }}" class="form-label">
+                                        {{ form.staff_notes.label }}
+                                    </label>
+                                    {{ form.staff_notes }}
+                                    {% if form.staff_notes.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.staff_notes.errors|join:", " }}</div>
+                                    {% endif %}
+                                    <div class="form-text">Internal notes — visible to staff only, never shown to the student.</div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary px-4">
+                                    <i data-lucide="check" style="width:16px;height:16px;"></i>
+                                    Save Changes
+                                </button>
+                                <a href="{% url 'dashboard:enquiry_detail' enquiry.pk %}" class="btn btn-outline-secondary px-4">
+                                    Cancel
+                                </a>
+                            </div>
+                        </form>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if not college %}
+<script>
+// Progressive enhancement only — every pairing is still validated
+// server-side in EnquiryUpdateForm.clean(), so this script filters the
+// Course dropdown to the selected College purely for convenience and
+// never affects what actually gets saved.
+document.addEventListener("DOMContentLoaded", function () {
+    var collegeField = document.getElementById("{{ form.college.id_for_label }}");
+    var courseField = document.getElementById("{{ form.course.id_for_label }}");
+    if (!collegeField || !courseField) { return; }
+
+    var allOptions = Array.prototype.slice.call(courseField.options).map(function (opt) {
+        return { value: opt.value, text: opt.text, college: opt.dataset.college || "" };
+    });
+
+    function applyFilter() {
+        var collegeId = collegeField.value;
+        var currentValue = courseField.value;
+        courseField.innerHTML = "";
+        allOptions.forEach(function (opt) {
+            if (opt.value === "" || opt.college === "" || opt.college === collegeId) {
+                var el = document.createElement("option");
+                el.value = opt.value;
+                el.textContent = opt.text;
+                courseField.appendChild(el);
+            }
+        });
+        if (Array.prototype.some.call(courseField.options, function (o) { return o.value === currentValue; })) {
+            courseField.value = currentValue;
+        }
+    }
+
+    collegeField.addEventListener("change", applyFilter);
+});
+</script>
+{% endif %}
+{% endblock %}

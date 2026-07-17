@@ -23,7 +23,7 @@ from accounts.forms import StaffCreationForm
 from accounts.models import User
 from admissions.models import Enquiry
 from courses.models import College, Course
-from .forms import SORT_FIELD_MAP, EnquiryFilterForm
+from .forms import SORT_FIELD_MAP, EnquiryFilterForm, EnquiryUpdateForm
 
 logger = logging.getLogger(__name__)
 
@@ -277,3 +277,183 @@ def enquiry_detail(request, pk):
         enquiry = get_object_or_404(queryset, pk=pk, college=college)
 
     return render(request, "dashboard/enquiry_detail.html", {"enquiry": enquiry})
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def enquiry_edit(request, pk):
+    """Phase 7: edit an existing enquiry's information, including
+    reassigning its College/Course (validated to be a real pairing — see
+    EnquiryUpdateForm for the full explanation of how this coexists with
+    Enquiry.college being auto-derived from Enquiry.course).
+
+    Same college-ownership scoping as enquiry_detail: a College Admin/Staff
+    user gets a 404 (not a 403) for another college's enquiry, and their
+    edit form additionally locks the College field to their own college
+    and restricts Course choices to that college only — see
+    EnquiryUpdateForm.__init__ — so editing can never move an enquiry to
+    another college for a non-Platform-Admin user.
+    """
+    queryset = Enquiry.objects.select_related("course", "college", "submitted_by")
+    if request.user.role == User.Role.SUPER_ADMIN:
+        college = None
+        enquiry = get_object_or_404(queryset, pk=pk)
+    else:
+        college = get_staff_college(request.user)
+        if college is None:
+            messages.error(request, "Your account is not linked to a college yet. Contact your Platform Admin.")
+            return redirect("core:home")
+        enquiry = get_object_or_404(queryset, pk=pk, college=college)
+
+    if request.method == "POST":
+        form = EnquiryUpdateForm(request.POST, instance=enquiry, staff_college=college)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Enquiry #{enquiry.pk} ({enquiry.full_name}) updated successfully.")
+            return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
+        messages.error(request, "Please correct the errors below and try again.")
+    else:
+        form = EnquiryUpdateForm(instance=enquiry, staff_college=college)
+
+    return render(request, "dashboard/enquiry_edit.html", {"form": form, "enquiry": enquiry, "college": college})
+
+
+def _staff_scope(request):
+    """Shared by the Phase 8 views below (recycle bin / delete / restore /
+    permanent delete) to avoid repeating the same college-ownership
+    resolution four times in a row.
+
+    Returns (college, error_response). `college` is None for a Platform
+    Admin (unscoped — sees/acts on every college); otherwise it's the
+    caller's own College. If `error_response` is not None (the user's
+    staff account isn't linked to a college), the caller must return it
+    immediately without proceeding.
+    """
+    if request.user.role == User.Role.SUPER_ADMIN:
+        return None, None
+    college = get_staff_college(request.user)
+    if college is None:
+        messages.error(request, "Your account is not linked to a college yet. Contact your Platform Admin.")
+        return None, redirect("core:home")
+    return college, None
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def enquiry_recycle_bin(request):
+    """Phase 8: Recycle Bin — lists soft-deleted enquiries, paginated,
+    with the same college-ownership scoping as enquiry_list (a Platform
+    Admin sees every deleted enquiry; College Admin/Staff see only their
+    own college's).
+
+    Uses Enquiry.all_objects (the plain manager, not the soft-delete-
+    filtered default `objects`) so deleted rows are actually visible here
+    — this is the one place in the app that's supposed to see them.
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return error
+
+    enquiries = Enquiry.all_objects.select_related("course", "college").filter(is_deleted=True)
+    if college is not None:
+        enquiries = enquiries.filter(college=college)
+
+    paginator = Paginator(enquiries, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    context = {
+        "college": college,
+        "page_obj": page_obj,
+        "enquiries": page_obj.object_list,
+        "total_count": paginator.count,
+        # Permanent delete is restricted to administrators (Platform Admin
+        # / College Admin) per the Phase 8 spec — College Staff can
+        # soft-delete/restore but not permanently delete. The template
+        # uses this flag to decide whether to render that button at all,
+        # but the real enforcement is the @role_required on the view.
+        "can_permanently_delete": request.user.role in (User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN),
+    }
+    return render(request, "dashboard/enquiry_recycle_bin.html", context)
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def enquiry_delete(request, pk):
+    """Phase 8: soft delete — move an enquiry to the Recycle Bin.
+
+    Available to the same roles as enquiry_list/enquiry_edit (anyone who
+    can manage enquiries can soft-delete them); permanent deletion is a
+    separate, admin-only action below. This alone never causes data
+    loss — it only flips is_deleted to True and can always be undone via
+    enquiry_restore.
+
+    Same college-ownership scoping as enquiry_detail/enquiry_edit: a
+    College Admin/Staff user gets a 404 (not a 403) for another college's
+    enquiry. GET is a no-op (redirects without deleting anything), same
+    convention as approve_college/reject_college/suspend_college above —
+    only POST actually performs the action.
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return error
+
+    queryset = Enquiry.objects.all() if college is None else Enquiry.objects.filter(college=college)
+    enquiry = get_object_or_404(queryset, pk=pk)
+
+    if request.method == "POST":
+        enquiry.soft_delete()
+        logger.info("Enquiry #%s moved to recycle bin by %s", enquiry.pk, request.user.username)
+        messages.success(request, f"Enquiry #{enquiry.pk} ({enquiry.full_name}) moved to the Recycle Bin.")
+        return redirect("dashboard:enquiry_list")
+    return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def enquiry_restore(request, pk):
+    """Phase 8: undo a soft delete — restore an enquiry out of the
+    Recycle Bin. Same roles and college-ownership scoping as
+    enquiry_delete; only ever operates on already-deleted rows
+    (Enquiry.all_objects, filtered to is_deleted=True), so this can't be
+    used to "restore" something that was never deleted.
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return error
+
+    queryset = Enquiry.all_objects.filter(is_deleted=True)
+    if college is not None:
+        queryset = queryset.filter(college=college)
+    enquiry = get_object_or_404(queryset, pk=pk)
+
+    if request.method == "POST":
+        enquiry.restore()
+        logger.info("Enquiry #%s restored from recycle bin by %s", enquiry.pk, request.user.username)
+        messages.success(request, f"Enquiry #{enquiry.pk} ({enquiry.full_name}) restored.")
+    return redirect("dashboard:enquiry_recycle_bin")
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN)
+def enquiry_permanent_delete(request, pk):
+    """Phase 8: permanently delete an enquiry — restricted to
+    administrators (Platform Admin / College Admin) per the Phase 8 spec;
+    College Staff cannot reach this view at all (@role_required excludes
+    them, unlike enquiry_delete/enquiry_restore above).
+
+    Two-step safety, matching the "no data loss" acceptance criterion:
+    this view only ever operates on enquiries that are ALREADY in the
+    Recycle Bin (is_deleted=True) — there is no path from the active list
+    straight to permanent deletion. Every deletion is soft and reversible
+    until a deliberate, separate, admin-only second action.
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return error
+
+    queryset = Enquiry.all_objects.filter(is_deleted=True)
+    if college is not None:
+        queryset = queryset.filter(college=college)
+    enquiry = get_object_or_404(queryset, pk=pk)
+
+    if request.method == "POST":
+        reference = f"#{enquiry.pk} ({enquiry.full_name})"
+        enquiry.delete()
+        logger.warning("Enquiry %s permanently deleted by %s", reference, request.user.username)
+        messages.success(request, f"Enquiry {reference} permanently deleted.")
+    return redirect("dashboard:enquiry_recycle_bin")
