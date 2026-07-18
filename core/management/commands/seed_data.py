@@ -71,10 +71,17 @@ class Command(BaseCommand):
                 "first_name": first_name,
                 "last_name": last_name,
                 "role": role,
-                # Deliberately NOT is_staff=True: Django's /admin/ is not
-                # scoped per-college, so admin access would let College
-                # Admin/Staff see every college's data there. They use the
-                # college-scoped dashboard instead (see accounts.decorators).
+                # is_staff=True only for COLLEGE_ADMIN: required to log into
+                # the Campora Administration Panel at all (Django's own
+                # AdminAuthenticationForm hard-requires is_staff, regardless
+                # of our custom CamporaAdminSite.has_permission() check —
+                # see core/admin_site.py). What they can actually see/do
+                # once inside is then scoped to their own college by
+                # core/admin_mixins.py, not by this flag. COLLEGE_STAFF
+                # intentionally gets no admin access at all, per the
+                # Admin Panel Upgrade spec — they keep using the
+                # college-scoped dashboard only.
+                "is_staff": role == User.Role.COLLEGE_ADMIN,
             },
         )
         if created:

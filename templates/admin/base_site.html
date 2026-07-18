@@ -1,0 +1,36 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% comment %}
+Deliberately extends "admin/base.html" directly, NOT "admin/base_site.html"
+— this file's own path IS "admin/base_site.html" in this project's
+template DIRS, so extending that name would resolve back to this same
+file (Django's {% extends %} does a fresh full-loader-chain lookup, and
+project DIRS is searched before app template dirs) and recurse forever.
+Extending base.html and reimplementing the small title/branding blocks
+ourselves is the standard, documented way to override admin/base_site.html
+without that trap.
+{% endcomment %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:"Campora Admin" }}{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+    <a href="{% url 'admin:index' %}">🎓 {{ site_header|default:"Campora Administration Panel" }}</a>
+</div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/admin-campora.css' %}">
+{% endblock %}
+
+{% block footer %}
+<div id="campora-admin-footer">
+    Campora Administration Panel &middot; Campora &mdash; Multi-College Admission &amp; Student Enquiry Platform
+</div>
+{% endblock %}

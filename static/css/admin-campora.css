@@ -1,0 +1,142 @@
+/* Campora Administration Panel — brand re-skin.
+
+Django's admin theme is driven almost entirely by CSS custom properties
+defined in admin/css/base.css's `:root` block; overriding just those
+here re-skins the whole panel (header, links, buttons, sidebar) without
+having to fight individual selectors. Loaded via {% block extrastyle %}
+in templates/admin/base_site.html, after base.css, so these values win.
+
+Colors intentionally kept in sync with static/css/style.css's
+--brand-* variables (the public site's own branding) — duplicated as
+plain hex here rather than shared via CSS custom property inheritance,
+since the admin's base.css is a separate stylesheet with its own
+unrelated :root block and loads independently of the public site's CSS.
+*/
+
+:root {
+    --primary: #2563EB;          /* --brand-primary */
+    --secondary: #1F2937;        /* --brand-text, used for the header bar */
+    --accent: #10B981;           /* --brand-accent */
+    --primary-fg: #fff;
+
+    --header-color: #fff;
+    --header-branding-color: var(--accent);
+    --header-bg: var(--secondary);
+    --header-link-color: #fff;
+
+    --breadcrumbs-fg: #cbd5e1;
+    --breadcrumbs-link-fg: #fff;
+    --breadcrumbs-bg: #111827;
+
+    --link-fg: #2563EB;
+    --link-hover-color: #1d4ed8;
+    --link-selected-fg: #2563EB;
+
+    --button-bg: var(--primary);
+    --button-hover-bg: #1d4ed8;
+    --default-button-bg: var(--secondary);
+    --default-button-hover-bg: #111827;
+
+    --error-fg: #DC2626;         /* --brand-error */
+}
+
+#site-name a {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+}
+
+#campora-admin-footer {
+    padding: 12px 40px;
+    font-size: 0.8125rem;
+    color: var(--body-quiet-color);
+    text-align: center;
+    border-top: 1px solid var(--hairline-color);
+}
+
+/* Campora Overview dashboard cards (templates/admin/index.html) */
+.campora-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin: 0 0 24px;
+}
+
+.campora-card {
+    background: var(--body-bg);
+    border: 1px solid var(--hairline-color);
+    border-radius: 8px;
+    padding: 16px 18px;
+}
+
+.campora-card .campora-card-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1.2;
+}
+
+.campora-card .campora-card-label {
+    font-size: 0.8125rem;
+    color: var(--body-quiet-color);
+    margin-top: 4px;
+}
+
+.campora-card.campora-card-warning .campora-card-value {
+    color: #F59E0B;
+}
+
+.campora-section {
+    margin: 0 0 28px;
+}
+
+.campora-section h2 {
+    font-size: 1.05rem;
+    margin-bottom: 10px;
+}
+
+.campora-quick-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 24px;
+}
+
+.campora-quick-links a {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.8125rem;
+    text-decoration: none;
+}
+
+.campora-quick-links a:hover {
+    background: var(--link-hover-color);
+    color: #fff;
+}
+
+.campora-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.campora-table th, .campora-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--hairline-color);
+    text-align: left;
+}
+
+.campora-table th {
+    color: var(--body-quiet-color);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+.campora-empty {
+    color: var(--body-quiet-color);
+    font-size: 0.875rem;
+    padding: 8px 0;
+}

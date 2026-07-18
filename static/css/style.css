@@ -112,6 +112,38 @@ main {
     padding: 1.5rem;
 }
 
+/* Quick Action cards (Admin Panel Upgrade): same lift+shadow language as
+   .btn:hover above, applied to the whole card since these are clickable
+   tiles rather than buttons. */
+.quick-action-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    height: 100%;
+}
+.quick-action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(31, 41, 55, 0.12);
+    color: inherit;
+}
+.quick-action-card.quick-action-disabled {
+    opacity: 0.55;
+    cursor: default;
+    pointer-events: none;
+}
+.quick-action-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--brand-primary);
+    margin-bottom: 0.75rem;
+}
+
 section {
     padding: 3rem 0;
 }

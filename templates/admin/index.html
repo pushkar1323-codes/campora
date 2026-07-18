@@ -1,0 +1,192 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% comment %}
+Extends "admin/base_site.html", which resolves to OUR OWN override at
+that path (templates/admin/base_site.html, see that file's comment on
+why it itself extends admin/base.html directly rather than this file's
+own path) — that's the correct, intended chain here, not a recursion
+trap: this file's path is "admin/index.html", a different path than what
+it extends.
+{% endcomment %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/dashboard.css" %}">{% endblock %}
+
+{% block coltype %}colMS{% endblock %}
+{% block bodyclass %}{{ block.super }} dashboard{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+
+{% if campora_stats %}
+    <div class="campora-section">
+        <h2>Campora Overview &mdash; {{ campora_stats.scope_label }}</h2>
+        <div class="campora-overview">
+            {% if campora_is_platform_scope %}
+            <div class="campora-card">
+                <div class="campora-card-value">{{ campora_stats.total_colleges }}</div>
+                <div class="campora-card-label">Total Colleges</div>
+            </div>
+            <div class="campora-card{% if campora_stats.pending_colleges %} campora-card-warning{% endif %}">
+                <div class="campora-card-value">{{ campora_stats.pending_colleges }}</div>
+                <div class="campora-card-label">Pending College Approvals</div>
+            </div>
+            <div class="campora-card">
+                <div class="campora-card-value">{{ campora_stats.total_courses }}</div>
+                <div class="campora-card-label">Total Courses</div>
+            </div>
+            <div class="campora-card">
+                <div class="campora-card-value">{{ campora_stats.total_students }}</div>
+                <div class="campora-card-label">Total Students</div>
+            </div>
+            {% else %}
+            <div class="campora-card">
+                <div class="campora-card-value">{{ campora_stats.total_courses }}</div>
+                <div class="campora-card-label">Total Courses</div>
+            </div>
+            <div class="campora-card">
+                <div class="campora-card-value">{{ campora_stats.active_courses }}</div>
+                <div class="campora-card-label">Active Courses</div>
+            </div>
+            {% endif %}
+            <div class="campora-card">
+                <div class="campora-card-value">{{ campora_stats.total_staff }}</div>
+                <div class="campora-card-label">Total Staff</div>
+            </div>
+            <div class="campora-card">
+                <div class="campora-card-value">{{ campora_stats.total_enquiries }}</div>
+                <div class="campora-card-label">Total Enquiries</div>
+            </div>
+            <div class="campora-card{% if campora_stats.pending_enquiries %} campora-card-warning{% endif %}">
+                <div class="campora-card-value">{{ campora_stats.pending_enquiries }}</div>
+                <div class="campora-card-label">New / Pending Enquiries</div>
+            </div>
+            <div class="campora-card">
+                <div class="campora-card-value">{{ campora_stats.today_enquiries }}</div>
+                <div class="campora-card-label">Today's Enquiries</div>
+            </div>
+            <div class="campora-card">
+                <div class="campora-card-value">{{ campora_stats.deleted_enquiries }}</div>
+                <div class="campora-card-label">In Recycle Bin</div>
+            </div>
+        </div>
+    </div>
+
+    {% if campora_quick_links %}
+    <div class="campora-section">
+        <h2>Quick Links</h2>
+        <div class="campora-quick-links">
+            {% for label, url in campora_quick_links %}
+            <a href="{{ url }}">{{ label }}</a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="campora-section">
+        <h2>Latest Admissions</h2>
+        {% if campora_recent_enquiries %}
+        <table class="campora-table">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    {% if campora_is_platform_scope %}<th>College</th>{% endif %}
+                    <th>Course</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for enquiry in campora_recent_enquiries %}
+                <tr>
+                    <td><a href="{% url 'admin:admissions_enquiry_change' enquiry.pk %}">{{ enquiry.full_name }}</a></td>
+                    {% if campora_is_platform_scope %}<td>{{ enquiry.college.name }}</td>{% endif %}
+                    <td>{{ enquiry.course.course_name }}</td>
+                    <td>{{ enquiry.get_status_display }}</td>
+                    <td>{{ enquiry.created_at|date:"M d, Y" }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="campora-empty">No enquiries yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="campora-section">
+        <h2>Recent Activity{% if not campora_is_platform_scope %} (you){% endif %}</h2>
+        {% if campora_recent_activity %}
+        <table class="campora-table">
+            <thead><tr><th>When</th><th>User</th><th>Action</th><th>Item</th></tr></thead>
+            <tbody>
+            {% for entry in campora_recent_activity %}
+                <tr>
+                    <td>{{ entry.action_time|date:"M d, Y H:i" }}</td>
+                    <td>{{ entry.user }}</td>
+                    <td>
+                        {% if entry.is_addition %}Added{% elif entry.is_change %}Changed{% elif entry.is_deletion %}Deleted{% endif %}
+                    </td>
+                    <td>{{ entry.object_repr }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="campora-empty">No recent admin activity yet.</p>
+        {% endif %}
+    </div>
+
+    {% if campora_is_platform_scope %}
+    <div class="campora-section">
+        <h2>System Status</h2>
+        <div class="campora-overview">
+            <div class="campora-card">
+                <div class="campora-card-value">{% if campora_debug_mode %}ON{% else %}OFF{% endif %}</div>
+                <div class="campora-card-label">Debug Mode</div>
+            </div>
+            <div class="campora-card">
+                <div class="campora-card-value">Connected</div>
+                <div class="campora-card-label">Database</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+
+  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div id="content-related">
+    <div class="module" id="recent-actions-module">
+        <h2>{% translate 'Recent actions' %}</h2>
+        <h3>{% translate 'My actions' %}</h3>
+            {% load log %}
+            {% get_admin_log 10 as admin_log for_user user %}
+            {% if not admin_log %}
+            <p>{% translate 'None available' %}</p>
+            {% else %}
+            <ul class="actionlist">
+            {% for entry in admin_log %}
+            <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+                <span class="visually-hidden">{% if entry.is_addition %}{% translate 'Added:' %}{% elif entry.is_change %}{% translate 'Changed:' %}{% elif entry.is_deletion %}{% translate 'Deleted:' %}{% endif %}</span>
+                {% if entry.is_deletion or not entry.get_admin_url %}
+                    {{ entry.object_repr }}
+                {% else %}
+                    <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+                {% endif %}
+                <br>
+                {% if entry.content_type %}
+                    <span class="mini quiet">{% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}</span>
+                {% else %}
+                    <span class="mini quiet">{% translate 'Unknown content' %}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+            </ul>
+            {% endif %}
+    </div>
+</div>
+{% endblock %}

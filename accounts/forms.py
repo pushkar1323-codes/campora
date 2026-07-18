@@ -90,11 +90,17 @@ class StaffCreationForm(UserCreationForm):
     def save(self, role, college, commit=True):
         user = super().save(commit=False)
         user.role = role
-        # Deliberately NOT setting user.is_staff here: Django's /admin/ is
-        # not scoped per-college, so granting admin access would let a
-        # College Admin/Staff user see every college's data there. They
-        # instead use the college-scoped dashboard views (dashboard app),
-        # which enforce college ownership via get_staff_college().
+        # is_staff=True only for COLLEGE_ADMIN — required to log into the
+        # Campora Administration Panel at all (Django's own
+        # AdminAuthenticationForm hard-requires is_staff independently of
+        # our custom CamporaAdminSite.has_permission() check; see
+        # core/admin_site.py). COLLEGE_STAFF intentionally gets no admin
+        # access, per the Admin Panel Upgrade spec — they keep using the
+        # college-scoped dashboard only. What a College Admin can actually
+        # see/do once inside the admin is then scoped to `college` by
+        # core/admin_mixins.py, not by this flag — this only gets them
+        # through the door.
+        user.is_staff = role == User.Role.COLLEGE_ADMIN
         if commit:
             user.save()
             StaffProfile.objects.create(

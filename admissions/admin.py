@@ -1,17 +1,27 @@
 """Django admin configuration for the admissions app (Campora).
 
+Registered on core.admin_site.campora_admin_site (the custom Campora
+Administration Panel), not the default admin.site.
+
 The admin deliberately operates on `Enquiry.all_objects` (not the default
 `Enquiry.objects`) so that staff/administrators using the Django admin can
 see soft-deleted records too — the admin is an internal tool, distinct from
-the staff-facing Recycle Bin UI that will be built in Phase 8.
+the staff-facing Recycle Bin UI (Phase 8). This predates the Admin Panel
+Upgrade and is preserved unchanged; college-ownership scoping is layered
+on top of it below rather than replacing it.
 """
 from django.contrib import admin
+
+from accounts.decorators import get_staff_college
+from accounts.models import User
+from core.admin_mixins import CollegeScopedAdminMixin
+from core.admin_site import campora_admin_site
 
 from .models import Enquiry
 
 
-@admin.register(Enquiry)
-class EnquiryAdmin(admin.ModelAdmin):
+@admin.register(Enquiry, site=campora_admin_site)
+class EnquiryAdmin(CollegeScopedAdminMixin, admin.ModelAdmin):
     list_display = (
         "full_name",
         "email",
@@ -52,13 +62,32 @@ class EnquiryAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        # Use all_objects (not the soft-delete-filtered default manager) so
-        # staff can see and manage deleted enquiries directly in the admin.
+        # Deliberately NOT calling super().get_queryset() (which would
+        # resolve to CollegeScopedAdminMixin -> admin.ModelAdmin and use
+        # Enquiry.objects, the soft-delete-filtered default manager) —
+        # this must stay on Enquiry.all_objects to preserve the existing,
+        # documented "admin sees deleted rows too" behavior above.
         qs = self.model.all_objects.get_queryset()
         ordering = self.get_ordering(request)
         if ordering:
             qs = qs.order_by(*ordering)
-        return qs
+        if request.user.role == User.Role.SUPER_ADMIN:
+            return qs
+        college = get_staff_college(request.user)
+        return qs.filter(college_id=college.id) if college is not None else qs.none()
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # A College Admin must never see other colleges' courses in the
+        # "Course" dropdown — course.college derives Enquiry.college on
+        # save (see Enquiry.save()), so this is what actually prevents a
+        # College Admin from routing an enquiry to another college.
+        if db_field.name == "course" and request.user.role != User.Role.SUPER_ADMIN:
+            college = get_staff_college(request.user)
+            from courses.models import Course
+            kwargs["queryset"] = (
+                Course.objects.filter(college=college) if college else Course.objects.none()
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     @admin.action(description="Soft delete selected enquiries")
     def mark_as_deleted(self, request, queryset):
