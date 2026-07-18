@@ -8,10 +8,16 @@
             <h1 class="campora-heading mb-1">Platform Dashboard</h1>
             <p class="text-muted mb-0">Welcome back, {{ request.user.first_name|default:request.user.username }}.</p>
         </div>
-        <a href="{% url 'dashboard:enquiry_list' %}" class="btn btn-outline-primary">
-            <i data-lucide="inbox" style="width:16px;height:16px;"></i>
-            View All Enquiries
-        </a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'dashboard:enquiry_list' %}" class="btn btn-outline-primary">
+                <i data-lucide="inbox" style="width:16px;height:16px;"></i>
+                View All Enquiries
+            </a>
+            <a href="{% url 'dashboard:enquiry_recycle_bin' %}" class="btn btn-outline-secondary">
+                <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+                Recycle Bin
+            </a>
+        </div>
     </div>
 </section>
 
@@ -53,6 +59,76 @@
                     <h3 class="campora-heading h4 mb-0">{{ stats.total_students }}</h3>
                     <p class="small text-muted mb-0">Students</p>
                 </div></div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Enquiries by College</h5>
+                        {% if stats.total_enquiries %}
+                        <canvas id="collegeChart" height="260" role="img"
+                                aria-label="Bar chart of enquiry counts per college"></canvas>
+                        {% else %}
+                        <div class="campora-empty-state">
+                            <i data-lucide="bar-chart-3"></i>
+                            <p class="mb-0">No enquiries yet — the chart will populate once students start enquiring.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Enquiries by Status</h5>
+                        {% if stats.total_enquiries %}
+                        <canvas id="statusChart" height="260" role="img"
+                                aria-label="Doughnut chart of enquiry counts per status"></canvas>
+                        {% else %}
+                        <div class="campora-empty-state">
+                            <i data-lucide="pie-chart"></i>
+                            <p class="mb-0">No enquiries yet.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <h5 class="campora-heading mb-0">Recent Enquiries</h5>
+                    <a href="{% url 'dashboard:enquiry_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                {% if recent_enquiries %}
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead><tr><th>Student</th><th>College</th><th>Course</th><th>Status</th><th>Submitted</th><th class="text-end">Actions</th></tr></thead>
+                        <tbody>
+                        {% for enquiry in recent_enquiries %}
+                            <tr>
+                                <td>{{ enquiry.full_name }}</td>
+                                <td>{{ enquiry.college.name }}</td>
+                                <td>{{ enquiry.course.course_name }}</td>
+                                <td><span class="badge bg-secondary-subtle text-secondary">{{ enquiry.get_status_display }}</span></td>
+                                <td>{{ enquiry.created_at|date:"M d, Y" }}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'dashboard:enquiry_detail' enquiry.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="campora-empty-state">
+                    <i data-lucide="inbox"></i>
+                    <p class="mb-0">No enquiries yet.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -131,4 +207,64 @@
         </div>
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{% if stats.total_enquiries %}
+{{ college_chart|json_script:"college-chart-data" }}
+{{ status_chart|json_script:"status-chart-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Phase 10: college-wise and status-wise analytics. Data comes from
+    // dashboard/views.py::platform_dashboard via the json_script filter,
+    // which Django escapes safely for embedding in HTML — never
+    // string-built into the <script> tag directly.
+    var collegeData = JSON.parse(document.getElementById("college-chart-data").textContent);
+    var statusData = JSON.parse(document.getElementById("status-chart-data").textContent);
+
+    var collegeCanvas = document.getElementById("collegeChart");
+    if (collegeCanvas) {
+        new Chart(collegeCanvas, {
+            type: "bar",
+            data: {
+                labels: collegeData.labels,
+                datasets: [{
+                    label: "Enquiries",
+                    data: collegeData.data,
+                    backgroundColor: "#2563EB",
+                    borderRadius: 4,
+                }],
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+            },
+        });
+    }
+
+    var statusCanvas = document.getElementById("statusChart");
+    if (statusCanvas) {
+        new Chart(statusCanvas, {
+            type: "doughnut",
+            data: {
+                labels: statusData.labels,
+                datasets: [{
+                    data: statusData.data,
+                    backgroundColor: [
+                        "#2563EB", "#0EA5E9", "#10B981", "#F59E0B",
+                        "#8B5CF6", "#F97316", "#16A34A", "#DC2626",
+                    ],
+                }],
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } },
+            },
+        });
+    }
+});
+</script>
+{% endif %}
 {% endblock %}

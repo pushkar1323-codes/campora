@@ -81,47 +81,10 @@ Implemented so far:
   instead of erroring. College Admin/Staff never get a college filter and
   their course choices are restricted to their own college — the same
   ownership rule the rest of the dashboard follows.
-- **Update Module** : staff can now edit any field on an
-  enquiry — including reassigning its College and Course — from
-  `/dashboard/enquiries/<id>/edit/`. The College and Course dropdowns are
-  a genuine pair: picking a College narrows the Course dropdown (a small
-  progressive-enhancement script for Platform Admin; College Admin/Staff
-  simply never see other colleges' courses at all), and the pairing is
-  re-validated server-side regardless of what the browser sent
-  (`course.college` must match the selected `college`, or the form is
-  redisplayed with a field-level error). This does **not** loosen the
-  "college is auto-derived from course" rule above — the College
-  dropdown drives validation/UX, but saving the form still only ever
-  changes `course`, and `Enquiry.save()` re-derives `college` from it the
-  same way it always has. College Admin/Staff get a College field that's
-  rendered `disabled`, so even a hand-crafted POST body can't move an
-  enquiry to another college — Django disabled fields always use their
-  server-set initial value and silently ignore submitted data. Success
-  and validation-error messages both surface via the existing Bootstrap
-  alert / Django-messages integration.
-- **Delete & Restore** : enquiries are soft-deleted by default —
-  "delete" (from the enquiry list or detail page, with a confirm prompt)
-  moves an enquiry to a **Recycle Bin** (`/dashboard/enquiries/recycle-bin/`)
-  rather than removing it, so there is never a one-click, irreversible
-  data-loss action. From the Recycle Bin, any staff role that manages
-  enquiries can **Restore** a record back to the active list. **Permanent
-  deletion** is a deliberate second step, restricted to administrators
-  (Platform Admin / College Admin — College Staff can soft-delete and
-  restore but not permanently delete) and can *only* be performed on a
-  record that's already in the Recycle Bin — there's no path from the
-  active list straight to permanent deletion. College ownership scoping
-  applies throughout: a College Admin/Staff user's Recycle Bin only shows
-  their own college's deleted enquiries, and delete/restore/permanent-
-  delete on another college's enquiry 404s the same way the rest of the
-  dashboard does. This uses the soft-delete manager (`Enquiry.objects` /
-  `Enquiry.all_objects`, `is_deleted`, `soft_delete()`/`restore()`) that
-  was already built into the model back in Phase 2/Platform Refactor —
-  every Phase 4–7 query already excluded soft-deleted rows automatically,
-  so this phase only had to add the delete/restore/recycle-bin views
-  themselves.
 
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
-Full analytics dashboard, CSV/Excel export, AWS deployment.
+Enquiry edit (Phase 7), delete/restore (Phase 8), full analytics
+dashboard, CSV/Excel export, AWS deployment.
 
 ## Architecture & Roles
 
@@ -138,50 +101,12 @@ Campora uses **one custom Django user model** (`accounts.User`) with a
 Data model: `User` → `StudentProfile` (Student role) or `StaffProfile`
 (College Admin / College Staff role, linked to a `College`).
 
-## Authentication & Authorization
-
-Login/logout, registration, and role-based access control were all built
-during the Platform Refactor — ahead of their originally-numbered slot in
-`IMPLEMENTATION_PLAN.docx` (Phase 9), because the multi-college
-architecture couldn't be meaningfully built or tested without them. Phase
-9 in this codebase is a **verification pass** confirming the existing
-implementation already satisfies its spec in full, rather than new
-functionality (see PHASE_STATUS.docx and CHANGELOG.md `[0.9.1]` for the
-verification details).
-
-- **Login / logout**: Django's built-in `LoginView`/`LogoutView`
-  (`accounts/views.py`, `accounts/urls.py`) with Campora-branded Bootstrap
-  5 templates. Logout is a POST-only form (not a GET link) in the navbar
-  — required by Django 5.x's `LogoutView` for CSRF safety.
-- **Registration**: self-service student sign-up only
-  (`accounts/views.py::register_student`) — College Admin/Staff accounts
-  are provisioned by a College Admin via `/dashboard/college/staff/`, not
-  self-registered, matching the platform's role hierarchy.
-- **Every management page requires login.** `dashboard/views.py`'s
-  entry point (`dashboard_home`) and every dashboard view is decorated
-  with either `@login_required` or `@role_required(...)`
-  (`accounts/decorators.py`) — there is no dashboard/management URL that
-  skips this. Public pages (Home, Colleges, Course browsing, Contact,
-  and submitting an enquiry) intentionally remain open to anonymous
-  visitors, per `PROJECT_BRAIN.docx`'s Version 1.0 scope ("Students
-  submit enquiries without authentication").
-- **Redirect behaviour is intentionally split in two**, matching Django
-  best practice rather than blanket-redirecting everyone:
-  - **Anonymous** users hitting any protected page are redirected to
-    `/accounts/login/?next=<original URL>` — logging in then lands them
-    back on the page they actually wanted, not just the dashboard root.
-  - **Authenticated users with the wrong role** (e.g. a Student hitting
-    `/dashboard/platform/`, or College Staff hitting the admin-only
-    `/dashboard/college/staff/` or a permanent-delete URL) get a genuine
-    **403 Forbidden**, not a redirect — silently redirecting an
-    authenticated user who is deliberately trying (or accidentally
-    linked into) a page they can't use would either loop confusingly or
-    mask the permission error.
-- **College ownership**, layered on top of role checks, is enforced by
-  `accounts/decorators.py::get_staff_college` everywhere a College
-  Admin/Staff user touches data — see above for the many
-  cross-college-access tests (all 404, never 403, so another college's
-  data is never even confirmed to exist).
+**Scope note:** this phase builds the *data model and admin* for roles
+and colleges — registration forms, login/logout views, the Super Admin
+approval workflow UI, and role-specific dashboards are architected for
+(the models are ready) but not yet built; they arrive in dedicated future
+phases. Today, only Django's built-in `/admin/` is used to manage
+Users/Colleges/Courses/Enquiries.
 
 ## Technology Stack
 
@@ -307,8 +232,8 @@ Defined in `.env` (see `.env.example`):
   suspend colleges, see platform-wide stats, and browse **every**
   college's enquiries via the same `/dashboard/enquiries/` listing.
 
-Search/filter/sort , edit , and delete/restore
- are all live at `/dashboard/enquiries/` and its Recycle Bin.
+Enquiry search/filter/sort (Phase 6), edit (Phase 7), and delete/restore
+(Phase 8) are still upcoming — not yet built.
 
 ## AWS Deployment
 
@@ -390,79 +315,12 @@ Not yet implemented.
       Phase 4/Phase 5 regression-checked with no breakage (own-college
       detail 200, cross-college detail 404, Student 403, anonymous 302,
       Home/Colleges routes 200)
-- [x] Update Module verified end-to-end via Django's test client
-      — Platform Admin's edit form confirmed to have an enabled `college`
-      field pre-selected to the enquiry's current college; College
-      Admin/Staff's form confirmed to have `college` restricted to just
-      their own college **and** `disabled`; a valid edit (name, status,
-      staff notes) confirmed to persist and redirect to the detail page
-      with a success message; reassigning an enquiry to a course in a
-      genuinely different college (Platform Admin) confirmed to update
-      both `course` and the auto-derived `college` together; submitting a
-      college/course pair that don't actually match confirmed to
-      redisplay the form with a field-level error and leave the database
-      record unchanged; an out-of-range value (percentage > 100)
-      confirmed to redisplay with a field-level error; a College
-      Admin's attempt to inject a different college via a hand-crafted
-      POST body confirmed to have **zero effect** (disabled field, server
-      ignores submitted value); a College Admin's attempt to select
-      another college's course (outside their restricted queryset)
-      confirmed to be rejected as an invalid choice; cross-college edit
-      access confirmed to 404 on both GET and POST (verified with a
-      valid CSRF token, so the 404 is the view's own ownership check, not
-      just CSRF rejection); Student (403) and anonymous (302) both
-      re-confirmed blocked; Phase 4/5/6 regression pass (public routes,
-      enquiry list + search, enquiry detail) all still 200
-- [x] Delete & Restore verified end-to-end via Django's test
-      client — a GET to the delete URL confirmed to be a no-op (no state
-      change, matching the approve/reject/suspend-college convention
-      already used elsewhere in this app); a POST soft-deletes (flips
-      `is_deleted`) and immediately disappears from the active list and
-      404s on its own detail page (confirming `Enquiry.objects`, the
-      default manager, already excludes it); the same record confirmed
-      to appear in the Recycle Bin (`Enquiry.all_objects`); Restore
-      confirmed to flip it back and make the detail page reachable again;
-      **two-step safety** confirmed directly — attempting to
-      permanently-delete a record that is *not yet* in the Recycle Bin
-      returns 404 (the row is untouched), and only after soft-deleting it
-      first does permanent deletion succeed and the row actually vanish
-      from `Enquiry.all_objects`; College Staff confirmed able to
-      soft-delete and restore but blocked (403, both GET and POST) from
-      permanent deletion, and the Recycle Bin template's
-      `can_permanently_delete` flag confirmed `False` for that role so
-      the button isn't even rendered; College Admin confirmed able to
-      permanently delete within their own college; cross-college
-      isolation re-verified for all three new actions (soft-delete,
-      restore, permanent-delete each 404 on another college's enquiry,
-      leaving it completely untouched); Student (403) and anonymous
-      (302) both re-confirmed blocked from the Recycle Bin; full
-      Phase 4–7 regression pass (public routes, enquiry list, sort,
-      enquiry edit) all still 200
-- [x] Authentication & Authorization — **verification pass**,
-      no code changes (already fully implemented in the Platform
-      Refactor). Verified via Django's test client: login with correct
-      credentials authenticates and redirects to the role-appropriate
-      dashboard; login with a wrong password redisplays the form with a
-      non-field error and does not authenticate; logout (POST, matching
-      the actual navbar form — Django 5.x's `LogoutView` is POST-only)
-      clears the session; every one of the 7 management URLs tested
-      (`/dashboard/`, `/dashboard/platform/`, `/dashboard/college/`,
-      `/dashboard/college/staff/`, `/dashboard/student/`,
-      `/dashboard/enquiries/`, `/dashboard/enquiries/recycle-bin/`)
-      redirects an anonymous visitor to `/accounts/login/?next=<url>`;
-      logging in via that link lands back on the originally-requested
-      page, not just the dashboard root; a Student and (separately)
-      College Staff each hitting every page outside their role
-      (platform dashboard, college dashboard, manage-staff,
-      enquiry list, recycle bin, permanent-delete) get a real **403**,
-      not a silent redirect or 200; the correct role for each of those
-      pages gets **200**; `dashboard_home` routes all 4 roles to the
-      right landing page; public pages (Home, About, Colleges, Courses,
-      Contact, Login, Register) remain reachable without authentication,
-      confirming the intentionally-public Version 1.0 scope wasn't
-      accidentally locked down; CSRF protection confirmed active on the
-      login form itself (POST without a token → 403)
-- [ ] Full analytics dashboard; CSV export — not yet built
+- [ ] Edit (Phase 7); Delete/Restore (Phase 8); full analytics dashboard;
+      CSV export — not yet built (future phases)
+
+## Future Enhancements
+
+SMS notifications, document uploads, advanced reporting (see `PROJECT_BRAIN.docx`).
 
 ## Contributors
 

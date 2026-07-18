@@ -6,16 +6,18 @@ only ever sees data for accounts.decorators.get_staff_college(request.user)
 — never a college selected via URL or POST data — so there is no way for
 one college's admin to view or manage another college's data.
 
-Scope note: this is the dashboard *foundation* (role landing pages, college
-approval, staff provisioning) — full analytics/charts/CSV export are a
-later phase (Phase 10/11 in IMPLEMENTATION_PLAN.docx).
+Scope note: college approval and staff provisioning were delivered here
+in the Platform Refactor; enquiry search/filter/sort/edit/delete/restore
+arrived in Phases 6-8; Phase 10 (this update) adds the summary-card +
+recent-enquiries + Chart.js analytics + quick-action layout to both
+role dashboards. CSV export is still a later phase (Phase 11).
 """
 import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.decorators import get_staff_college, role_required
@@ -42,9 +44,37 @@ def dashboard_home(request):
     return redirect("core:home")
 
 
+def _status_breakdown(enquiry_queryset):
+    """Phase 10: enquiry counts grouped by Enquiry.Status, for the
+    status-wise Chart.js doughnut on both role dashboards.
+
+    Returns parallel (labels, data) lists covering every status in
+    Enquiry.Status.choices — including ones with zero enquiries in the
+    given scope — rather than only the statuses that happen to appear in
+    the query results. A status silently missing from the chart (because
+    nothing matched it *yet*) is easy to misread as "doesn't exist"; a
+    status explicitly shown at zero is unambiguous. This is what the
+    "Analytics accurate" acceptance criterion is actually asking for.
+    """
+    counts = {
+        row["status"]: row["count"]
+        for row in enquiry_queryset.values("status").annotate(count=Count("id"))
+    }
+    labels = [label for _, label in Enquiry.Status.choices]
+    data = [counts.get(value, 0) for value, _ in Enquiry.Status.choices]
+    return labels, data
+
+
 @role_required(User.Role.SUPER_ADMIN)
 def platform_dashboard(request):
-    """Platform Admin: platform-wide stats + college approval queue."""
+    """Platform Admin: platform-wide stats + college approval queue.
+
+    Phase 10 additions: a Recent Enquiries table (last 10, across every
+    college) and two Chart.js analytics — enquiries per college (every
+    college shown, including ones with zero, for the same "don't silently
+    omit" reasoning as _status_breakdown above) and enquiries per status
+    (platform-wide).
+    """
     stats = {
         "total_colleges": College.objects.count(),
         "approved_colleges": College.objects.filter(status=College.Status.APPROVED).count(),
@@ -55,7 +85,28 @@ def platform_dashboard(request):
     }
     pending_colleges = College.objects.filter(status=College.Status.PENDING)
     all_colleges = College.objects.all()
-    context = {"stats": stats, "pending_colleges": pending_colleges, "all_colleges": all_colleges}
+    recent_enquiries = Enquiry.objects.select_related("course", "college").all()[:10]
+
+    college_counts = {
+        row["college_id"]: row["count"]
+        for row in Enquiry.objects.values("college_id").annotate(count=Count("id"))
+    }
+    colleges_for_chart = College.objects.order_by("name")
+    college_chart = {
+        "labels": [c.name for c in colleges_for_chart],
+        "data": [college_counts.get(c.id, 0) for c in colleges_for_chart],
+    }
+    status_labels, status_data = _status_breakdown(Enquiry.objects.all())
+    status_chart = {"labels": status_labels, "data": status_data}
+
+    context = {
+        "stats": stats,
+        "pending_colleges": pending_colleges,
+        "all_colleges": all_colleges,
+        "recent_enquiries": recent_enquiries,
+        "college_chart": college_chart,
+        "status_chart": status_chart,
+    }
     return render(request, "dashboard/platform_dashboard.html", context)
 
 
@@ -95,7 +146,14 @@ def suspend_college(request, pk):
 @role_required(User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
 def college_dashboard(request):
     """College Admin/Staff: stats and recent enquiries scoped strictly to
-    their own college."""
+    their own college.
+
+    Phase 10 addition: a status-wise Chart.js doughnut for this college's
+    own enquiries. ("College-wise" analytics, the other Phase 10
+    requirement, only makes sense at the Platform Admin's platform-wide
+    scope — see platform_dashboard above; there's nothing to compare
+    across colleges from inside a single college's dashboard.)
+    """
     college = get_staff_college(request.user)
     if college is None:
         messages.error(request, "Your account is not linked to a college yet. Contact your Platform Admin.")
@@ -109,7 +167,16 @@ def college_dashboard(request):
         "enquiry_count": Enquiry.objects.filter(college=college).count(),
         "staff_count": college.staff_members.count(),
     }
-    context = {"college": college, "courses": courses, "enquiries": enquiries, "stats": stats}
+    status_labels, status_data = _status_breakdown(Enquiry.objects.filter(college=college))
+    status_chart = {"labels": status_labels, "data": status_data}
+
+    context = {
+        "college": college,
+        "courses": courses,
+        "enquiries": enquiries,
+        "stats": stats,
+        "status_chart": status_chart,
+    }
     return render(request, "dashboard/college_dashboard.html", context)
 
 
