@@ -436,6 +436,8 @@ Defined in `.env` (see `.env.example`):
 | `DB_PASSWORD` | MySQL password |
 | `DB_HOST` | MySQL host |
 | `DB_PORT` | MySQL port (default `3306`) |
+| `ENQUIRY_EDIT_WINDOW_MINUTES` | Minutes after submission a student may self-edit their enquiry (default `30`) |
+| `CORRECTION_REQUEST_EXTENDS_EDIT_WINDOW` | Whether an open staff Correction Request lets a student edit past an otherwise-expired window (default `True`) |
 
 ## Usage
 

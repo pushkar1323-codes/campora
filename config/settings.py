@@ -184,3 +184,23 @@ LOGGING = {
         'dashboard': {'handlers': ['console'], 'level': config('LOG_LEVEL', default='INFO'), 'propagate': False},
     },
 }
+
+# ---------------------------------------------------------------------------
+# Admission Workflow (Phase 1 — Secure Admission Workflow)
+# ---------------------------------------------------------------------------
+# How long, in minutes, after submitting an enquiry a student may still
+# edit it themselves (Feature 5). Stored here as configuration rather than
+# hard-coded in business logic — see admissions/services.py — so it can be
+# changed via the ENQUIRY_EDIT_WINDOW_MINUTES environment variable without
+# a code change.
+ENQUIRY_EDIT_WINDOW_MINUTES = config(
+    "ENQUIRY_EDIT_WINDOW_MINUTES", default=30, cast=int
+)
+
+# Whether an open staff Correction Request (Feature 6) lets a student edit
+# their enquiry even after ENQUIRY_EDIT_WINDOW_MINUTES has otherwise
+# expired. This is a configurable business rule (not a hard-coded
+# exception in code) — see admissions/services.py::correction_extends_edit_window().
+CORRECTION_REQUEST_EXTENDS_EDIT_WINDOW = config(
+    "CORRECTION_REQUEST_EXTENDS_EDIT_WINDOW", default=True, cast=bool
+)

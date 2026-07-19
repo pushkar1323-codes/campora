@@ -1,0 +1,80 @@
+<!-- {# Reusable "Correction Requests" section for the Enquiry Detail page
+(Phase 1, Feature 6). Expects `enquiry`, `correction_requests`,
+`correction_form` in context — see dashboard/views.py::enquiry_detail /
+request_correction. Kept as its own include (rather than inlined in
+enquiry_detail.html) so it can be reused anywhere else an enquiry's
+correction history needs to be shown, without duplicating markup. #} -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="campora-heading mb-3">Correction Requests</h5>
+
+        {% if correction_requests %}
+        <ul class="list-group list-group-flush mb-3">
+            {% for correction in correction_requests %}
+            <li class="list-group-item px-0">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div>
+                        <div class="fw-semibold">{{ correction.reason }}</div>
+                        {% if correction.message %}<div class="text-muted small">{{ correction.message }}</div>{% endif %}
+                        <div class="text-muted small mt-1">
+                            Requested by {{ correction.requested_by.get_full_name|default:correction.requested_by.username }}
+                            on {{ correction.created_at|date:"M d, Y, g:i a" }}
+                            {% if correction.resolved_at %} &middot; Resolved by {{ correction.resolved_by.get_full_name|default:correction.resolved_by.username }} on {{ correction.resolved_at|date:"M d, Y, g:i a" }}{% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        {% if correction.status == "OPEN" %}
+                        <span class="badge bg-warning-subtle text-warning">Awaiting Student</span>
+                        {% elif correction.status == "RESPONDED" %}
+                        <span class="badge bg-info-subtle text-info">Awaiting Review</span>
+                        {% else %}
+                        <span class="badge bg-success-subtle text-success">Resolved</span>
+                        {% endif %}
+                        {% if correction.is_open %}
+                        <form method="post" action="{% url 'dashboard:resolve_correction' enquiry.pk correction.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success">Mark Resolved</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="campora-empty-state">
+            <i data-lucide="check-circle"></i>
+            <p class="mb-0">No corrections have been requested for this enquiry.</p>
+        </div>
+        {% endif %}
+
+        <hr>
+        <h6 class="fw-semibold mb-2">Request a Correction</h6>
+        <p class="text-muted small">
+            Ask the student to update information themselves, instead of editing it directly.
+        </p>
+        <form method="post" action="{% url 'dashboard:request_correction' enquiry.pk %}">
+            {% csrf_token %}
+            <div class="row g-2">
+                <div class="col-md-5">
+                    {{ correction_form.reason }}
+                    {% if correction_form.reason.errors %}
+                    <div class="text-danger small mt-1" role="alert">{{ correction_form.reason.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-5">
+                    {{ correction_form.message }}
+                    {% if correction_form.message.errors %}
+                    <div class="text-danger small mt-1" role="alert">{{ correction_form.message.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i data-lucide="send" style="width:14px;height:14px;"></i>
+                        Request
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

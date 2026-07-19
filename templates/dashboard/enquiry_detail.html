@@ -14,7 +14,7 @@
                 Edit
             </a>
             <form method="post" action="{% url 'dashboard:enquiry_delete' enquiry.pk %}"
-                  onsubmit="return confirm('Move this enquiry to the Recycle Bin? You can restore it later.');">
+                onsubmit="return confirm('Move this enquiry to the Recycle Bin? You can restore it later.');">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-danger">
                     <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
@@ -34,9 +34,18 @@
         <div class="row g-4">
             <div class="col-lg-8">
 
+                <!-- Student Information: read-only for every role except a Platform
+                    Admin (who edits via the Edit page's Platform Admin Override
+                    section, never here) — Phase 1, Feature 1 & 3. Personal
+                    information belongs to the student's own profile, not the
+                    admission workflow; staff use "Request a Correction" below
+                    instead of an edit button. -->
                 <div class="card mb-4">
                     <div class="card-body">
-                        <h5 class="campora-heading mb-3">Applicant Details</h5>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="campora-heading mb-0">Student Information</h5>
+                            <span class="badge bg-secondary-subtle text-secondary">Read Only</span>
+                        </div>
                         <div class="row gy-3">
                             <div class="col-sm-6">
                                 <div class="text-muted small">Full Name</div>
@@ -51,7 +60,7 @@
                                 <div class="fw-semibold">{{ enquiry.email }}</div>
                             </div>
                             <div class="col-sm-6">
-                                <div class="text-muted small">Mobile</div>
+                                <div class="text-muted small">Phone</div>
                                 <div class="fw-semibold">{{ enquiry.mobile }}</div>
                             </div>
                             <div class="col-sm-6">
@@ -62,18 +71,46 @@
                                 <div class="text-muted small">Gender</div>
                                 <div class="fw-semibold">{{ enquiry.get_gender_display }}</div>
                             </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Applied Course</div>
+                                <div class="fw-semibold">{{ enquiry.course.course_name }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Submission Date</div>
+                                <div class="fw-semibold">{{ enquiry.created_at|date:"M d, Y, g:i a" }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Student ID</div>
+                                <div class="fw-semibold">
+                                    {% if enquiry.submitted_by %}{{ enquiry.submitted_by.username }} (registered student){% else %}Guest (not registered){% endif %}
+                                </div>
+                            </div>
                             <div class="col-12">
                                 <div class="text-muted small">Address</div>
                                 <div class="fw-semibold">{{ enquiry.address }}</div>
                             </div>
                         </div>
+                        {% if not can_edit_personal %}
+                        <div class="form-text mt-3">
+                            To correct any of the above, use "Request a Correction" below instead of editing it directly.
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 
+                <!-- Admission Workflow: the fields staff actually manage. -->
                 <div class="card mb-4">
                     <div class="card-body">
-                        <h5 class="campora-heading mb-3">Academic Details</h5>
+                        <h5 class="campora-heading mb-3">Admission Workflow</h5>
                         <div class="row gy-3">
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Status</div>
+                                <span class="badge bg-primary-subtle text-primary">{{ enquiry.get_status_display }}</span>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted small">Admission Year</div>
+                                <div class="fw-semibold">{{ enquiry.admission_year }}</div>
+                            </div>
                             <div class="col-sm-6">
                                 <div class="text-muted small">Qualification</div>
                                 <div class="fw-semibold">{{ enquiry.qualification }}</div>
@@ -82,22 +119,19 @@
                                 <div class="text-muted small">Percentage</div>
                                 <div class="fw-semibold">{{ enquiry.percentage }}%</div>
                             </div>
-                            <div class="col-sm-6">
-                                <div class="text-muted small">Admission Year</div>
-                                <div class="fw-semibold">{{ enquiry.admission_year }}</div>
-                            </div>
                         </div>
+                        {% if enquiry.staff_notes %}
+                        <hr>
+                        <div class="text-muted small">Staff Notes</div>
+                        <p class="mb-0" style="white-space: pre-wrap;">{{ enquiry.staff_notes }}</p>
+                        {% endif %}
                     </div>
                 </div>
 
-                {% if enquiry.staff_notes %}
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="campora-heading mb-3">Staff Notes</h5>
-                        <p class="mb-0" style="white-space: pre-wrap;">{{ enquiry.staff_notes }}</p>
-                    </div>
-                </div>
-                {% endif %}
+                {% include 'dashboard/partials/correction_requests_section.html' %}
+                {% include 'dashboard/partials/enquiry_documents_section.html' %}
+                {% include 'dashboard/partials/enquiry_communication_section.html' %}
+                {% include 'dashboard/partials/enquiry_timeline_section.html' %}
 
             </div>
 
@@ -105,10 +139,6 @@
                 <div class="card mb-4">
                     <div class="card-body">
                         <h5 class="campora-heading mb-3">Enquiry Info</h5>
-                        <div class="mb-3">
-                            <div class="text-muted small">Status</div>
-                            <span class="badge bg-primary-subtle text-primary">{{ enquiry.get_status_display }}</span>
-                        </div>
                         <div class="mb-3">
                             <div class="text-muted small">College</div>
                             <div class="fw-semibold">
@@ -123,15 +153,9 @@
                             <div class="text-muted small">Submitted</div>
                             <div class="fw-semibold">{{ enquiry.created_at|date:"M d, Y, g:i a" }}</div>
                         </div>
-                        <div class="mb-3">
+                        <div>
                             <div class="text-muted small">Last Updated</div>
                             <div class="fw-semibold">{{ enquiry.updated_at|date:"M d, Y, g:i a" }}</div>
-                        </div>
-                        <div>
-                            <div class="text-muted small">Submitted By</div>
-                            <div class="fw-semibold">
-                                {% if enquiry.submitted_by %}{{ enquiry.submitted_by.username }} (registered student){% else %}Guest (not logged in){% endif %}
-                            </div>
                         </div>
                     </div>
                 </div>

@@ -18,12 +18,19 @@ never blocks anonymous visitors).
 import logging
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
 from courses.models import College, Course
 
-from .forms import EnquiryForm
+from .forms import EnquiryForm, EnquirySelfEditForm
 from .models import Enquiry
+from .services import (
+    can_student_edit_enquiry,
+    enquiry_edit_deadline,
+    get_active_correction_request,
+    mark_correction_responded,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,3 +95,51 @@ def enquiry_success(request, pk):
         Enquiry.objects.select_related("course", "college"), pk=pk
     )
     return render(request, "admissions/enquiry_success.html", {"enquiry": enquiry})
+
+
+@login_required
+def enquiry_self_edit(request, pk):
+    """Phase 1, Feature 5 — a Student edits their own submitted enquiry,
+    within the configurable edit window (or while an open Correction
+    Request extends it — see admissions/services.py). Scoped to
+    `submitted_by=request.user` (404 for any other enquiry, including
+    another student's or an anonymous/guest submission with no owner),
+    matching the "never confirm existence of something out of scope"
+    pattern used everywhere else in this app.
+
+    All editability logic is delegated to
+    admissions.services.can_student_edit_enquiry — this view only
+    orchestrates the GET/POST flow around whatever that function decides.
+    """
+    enquiry = get_object_or_404(
+        Enquiry.objects.select_related("course", "college"),
+        pk=pk, submitted_by=request.user,
+    )
+    active_correction = get_active_correction_request(enquiry)
+    editable = can_student_edit_enquiry(enquiry, request.user)
+
+    context = {
+        "enquiry": enquiry,
+        "editable": editable,
+        "deadline": enquiry_edit_deadline(enquiry),
+        "active_correction": active_correction,
+    }
+
+    if not editable:
+        return render(request, "admissions/enquiry_self_edit.html", context)
+
+    if request.method == "POST":
+        form = EnquirySelfEditForm(request.POST, instance=enquiry)
+        if form.is_valid():
+            form.save()
+            if active_correction:
+                mark_correction_responded(active_correction)
+            logger.info("Enquiry #%s self-edited by %s", enquiry.pk, request.user.username)
+            messages.success(request, "Your enquiry has been updated.")
+            return redirect("dashboard:student")
+        messages.error(request, "Please correct the errors below and try again.")
+    else:
+        form = EnquirySelfEditForm(instance=enquiry)
+
+    context["form"] = form
+    return render(request, "admissions/enquiry_self_edit.html", context)

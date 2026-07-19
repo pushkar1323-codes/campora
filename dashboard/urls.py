@@ -23,5 +23,15 @@ urlpatterns = [
         views.enquiry_permanent_delete,
         name="enquiry_permanent_delete",
     ),
+    path(
+        "enquiries/<int:pk>/request-correction/",
+        views.request_correction,
+        name="request_correction",
+    ),
+    path(
+        "enquiries/<int:pk>/corrections/<int:correction_pk>/resolve/",
+        views.resolve_correction,
+        name="resolve_correction",
+    ),
     path("student/", views.student_dashboard, name="student"),
 ]

@@ -55,7 +55,14 @@
                                 {% endif %}
                             </div>
 
-                            <h5 class="campora-heading mb-3">Applicant Details</h5>
+                            {% if can_edit_personal %}
+                            <h5 class="campora-heading mb-3">Personal Information (Platform Admin Override)</h5>
+                            <div class="alert alert-warning small mb-3">
+                                Editing personal information directly is restricted to Platform Admin — normally used
+                                only for guest (non-registered) enquiries. For a registered student, prefer
+                                <strong>Request a Correction</strong> on the enquiry detail page instead, so the
+                                student updates their own information.
+                            </div>
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6">
                                     <label for="{{ form.full_name.id_for_label }}" class="form-label">
@@ -130,6 +137,38 @@
                                     {% endif %}
                                 </div>
                             </div>
+                            {% else %}
+                            <h5 class="campora-heading mb-3">Personal Information</h5>
+                            <div class="alert alert-secondary small mb-4">
+                                Personal information belongs to the student's own profile and is read-only here.
+                                Use <strong>Request a Correction</strong> on the
+                                <a href="{% url 'dashboard:enquiry_detail' enquiry.pk %}">enquiry detail page</a>
+                                to ask the student to update it themselves.
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="text-muted small">Full Name</div>
+                                    <div class="fw-semibold">{{ enquiry.full_name }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted small">Email</div>
+                                    <div class="fw-semibold">{{ enquiry.email }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted small">Mobile</div>
+                                    <div class="fw-semibold">{{ enquiry.mobile }}</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="{{ form.admission_year.id_for_label }}" class="form-label">
+                                        {{ form.admission_year.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.admission_year }}
+                                    {% if form.admission_year.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ form.admission_year.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
 
                             <h5 class="campora-heading mb-3">Academic Details</h5>
                             <div class="row g-3 mb-4">

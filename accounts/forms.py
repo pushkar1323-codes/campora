@@ -19,6 +19,7 @@ from django.forms import CharField, DateField, ModelForm, Textarea, TextInput
 from .models import StaffProfile, StudentProfile, User
 
 _TEXT_WIDGET = TextInput(attrs={"class": "form-control"})
+_DATE_WIDGET = TextInput(attrs={"class": "form-control", "type": "date"})
 
 
 class StudentSignUpForm(UserCreationForm):
@@ -110,3 +111,43 @@ class StaffCreationForm(UserCreationForm):
                 phone=self.cleaned_data.get("phone", ""),
             )
         return user
+
+
+class StudentBasicInfoForm(ModelForm):
+    """Phase 1, Feature 1/2 — the account-identity half of a Student's own
+    profile (name/email live on `accounts.User`, not on StudentProfile).
+    Used only by accounts/views.py::profile_view, bound to
+    `instance=request.user` — never any other user, so "Student can edit
+    own profile" / "Student cannot edit another student's profile" is
+    enforced by construction (see the view), not by a field on this form.
+
+    Deliberately separate from StudentSignUpForm (registration): per
+    MASTER_RULES.docx ("modify only what is necessary"), registration
+    stays untouched — profile completion/editing happens here, after
+    login, instead.
+    """
+
+    class Meta:
+        model = User
+        fields = ("first_name", "last_name", "email")
+        widgets = {
+            "first_name": _TEXT_WIDGET,
+            "last_name": _TEXT_WIDGET,
+            "email": TextInput(attrs={"class": "form-control", "type": "email"}),
+        }
+
+
+class StudentProfileEditForm(ModelForm):
+    """Phase 1, Feature 1/2 — the extended-profile half (phone/DOB/
+    address). Same "own profile only" enforcement as StudentBasicInfoForm
+    above — bound to `instance=request.user.student_profile` by the view.
+    """
+
+    class Meta:
+        model = StudentProfile
+        fields = ("phone", "date_of_birth", "address")
+        widgets = {
+            "phone": _TEXT_WIDGET,
+            "date_of_birth": _DATE_WIDGET,
+            "address": Textarea(attrs={"class": "form-control", "rows": 3}),
+        }

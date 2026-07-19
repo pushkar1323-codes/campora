@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}My Profile - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4">
+        <h1 class="campora-heading mb-1">My Profile</h1>
+        <p class="text-muted mb-0">
+            This is your personal information. Staff can view it while managing your admission
+            enquiries, but only you can edit it.
+        </p>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body p-4">
+                        <form method="post" novalidate>
+                            {% csrf_token %}
+
+                            <h5 class="campora-heading mb-3">Account Information</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label for="{{ user_form.first_name.id_for_label }}" class="form-label">
+                                        {{ user_form.first_name.label }}
+                                    </label>
+                                    {{ user_form.first_name }}
+                                    {% if user_form.first_name.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ user_form.first_name.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="{{ user_form.last_name.id_for_label }}" class="form-label">
+                                        {{ user_form.last_name.label }}
+                                    </label>
+                                    {{ user_form.last_name }}
+                                    {% if user_form.last_name.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ user_form.last_name.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="{{ user_form.email.id_for_label }}" class="form-label">
+                                        {{ user_form.email.label }}
+                                    </label>
+                                    {{ user_form.email }}
+                                    {% if user_form.email.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ user_form.email.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Username</label>
+                                    <input type="text" class="form-control" value="{{ request.user.username }}" disabled>
+                                    <div class="form-text">Username cannot be changed.</div>
+                                </div>
+                            </div>
+
+                            <h5 class="campora-heading mb-3">Personal Details</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label for="{{ profile_form.phone.id_for_label }}" class="form-label">
+                                        {{ profile_form.phone.label }}
+                                    </label>
+                                    {{ profile_form.phone }}
+                                    {% if profile_form.phone.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ profile_form.phone.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="{{ profile_form.date_of_birth.id_for_label }}" class="form-label">
+                                        {{ profile_form.date_of_birth.label }}
+                                    </label>
+                                    {{ profile_form.date_of_birth }}
+                                    {% if profile_form.date_of_birth.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ profile_form.date_of_birth.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-12">
+                                    <label for="{{ profile_form.address.id_for_label }}" class="form-label">
+                                        {{ profile_form.address.label }}
+                                    </label>
+                                    {{ profile_form.address }}
+                                    {% if profile_form.address.errors %}
+                                    <div class="text-danger small mt-1" role="alert">{{ profile_form.address.errors|join:", " }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i data-lucide="check" style="width:16px;height:16px;"></i>
+                                Save Changes
+                            </button>
+                            <a href="{% url 'dashboard:student' %}" class="btn btn-outline-secondary px-4">
+                                Back to Dashboard
+                            </a>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

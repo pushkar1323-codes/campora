@@ -96,13 +96,13 @@ class EnquiryFilterForm(forms.Form):
         — the same rule the rest of the app follows, applied here too:
 
         - The `college` field is removed entirely. A College Admin/Staff
-          user's scope is always their own college, decided server-side in
-          the view — never something they could override via the
-          querystring.
+        user's scope is always their own college, decided server-side in
+        the view — never something they could override via the
+        querystring.
         - The `course` field's choices are restricted to that college's
-          courses only, so a crafted `?course=<id>` for another college's
-          course simply matches nothing (never leaks another college's
-          course list, never lets them filter into another college).
+        courses only, so a crafted `?course=<id>` for another college's
+        course simply matches nothing (never leaks another college's
+        course list, never lets them filter into another college).
 
         With `staff_college=None` (Platform Admin), both fields cover
         every college/course on the platform.
@@ -194,26 +194,47 @@ class EnquiryUpdateForm(forms.ModelForm):
             "staff_notes": forms.Textarea(attrs={"class": _TEXT_INPUT, "rows": 3}),
         }
 
-    def __init__(self, *args, staff_college=None, **kwargs):
+    # Phase 1, Feature 1/3/7: personal-information fields, as opposed to
+    # admission-workflow fields. Never editable by College Admin/College
+    # Staff — see `can_edit_personal` below and
+    # admissions/services.py::can_staff_edit_personal_fields.
+    PERSONAL_FIELDS = ["full_name", "father_name", "email", "mobile", "address", "dob", "gender"]
+
+    def __init__(self, *args, staff_college=None, can_edit_personal=False, **kwargs):
         """`staff_college`: pass the College of a logged-in College
         Admin/Staff user to lock this form to "college ownership" rules,
         the same rule EnquiryFilterForm follows:
 
         - The `college` field's queryset is restricted to just that one
-          college and the field is `disabled` — Django disabled fields
-          always use their `initial` value and silently ignore whatever
-          was actually submitted, so even a hand-crafted POST body can't
-          move the enquiry to another college.
+        college and the field is `disabled` — Django disabled fields
+        always use their `initial` value and silently ignore whatever
+        was actually submitted, so even a hand-crafted POST body can't
+        move the enquiry to another college.
         - The `course` field's choices are restricted to that college's
-          courses only, so there is no course to pick that would move the
-          enquiry elsewhere even before `clean()` runs.
+        courses only, so there is no course to pick that would move the
+        enquiry elsewhere even before `clean()` runs.
 
         With `staff_college=None` (Platform Admin), both fields cover
         every college/course on the platform, and `college` starts
         pre-selected to the instance's current college (for the initial
         GET) so the Course dropdown's grouping makes sense at a glance.
+
+        `can_edit_personal` (Phase 1): pass
+        `admissions.services.can_staff_edit_personal_fields(request.user)`
+        from the view. When False (College Admin, College Staff), every
+        field in PERSONAL_FIELDS is removed from the form entirely — not
+        just disabled — so there is no input to render, submit, or tamper
+        with for student personal information. Staff use the Request
+        Correction workflow instead (see dashboard/views.py::request_correction).
+        Only a Platform Admin (the only role with this permission, per
+        Feature 7) sees and can submit these fields — also the only way to
+        correct an anonymous/guest enquiry's personal data, since a guest
+        has no account for a correction request to reach.
         """
         super().__init__(*args, **kwargs)
+        if not can_edit_personal:
+            for field_name in self.PERSONAL_FIELDS:
+                del self.fields[field_name]
         if staff_college is not None:
             self.fields["college"].queryset = College.objects.filter(
                 pk=staff_college.pk

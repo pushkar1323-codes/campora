@@ -22,6 +22,10 @@
                         {% if request.user.student_profile.phone %}
                         <p class="mb-1"><span class="text-muted small">Phone:</span> {{ request.user.student_profile.phone }}</p>
                         {% endif %}
+                        <a href="{% url 'accounts:profile' %}" class="btn btn-outline-primary mt-2">
+                            <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                            Edit My Profile
+                        </a>
                     </div>
                 </div>
             </div>
@@ -39,10 +43,54 @@
                 <div class="card">
                     <div class="card-body">
                         <h5 class="campora-heading mb-3">Your Enquiries</h5>
+                        {% if enquiry_rows %}
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>College &amp; Course</th>
+                                        <th>Status</th>
+                                        <th>Submitted</th>
+                                        <th>Editing</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in enquiry_rows %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">{{ row.enquiry.course.course_name }}</div>
+                                            <div class="text-muted small">{{ row.enquiry.college.name }}</div>
+                                        </td>
+                                        <td><span class="badge bg-primary-subtle text-primary">{{ row.enquiry.get_status_display }}</span></td>
+                                        <td>{{ row.enquiry.created_at|date:"M d, Y" }}</td>
+                                        <td>
+                                            {% if row.active_correction %}
+                                            <span class="badge bg-warning-subtle text-warning">Correction Requested</span>
+                                            {% elif row.editable %}
+                                            <span class="badge bg-success-subtle text-success">Open</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary">Locked</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if row.editable %}
+                                            <a href="{% url 'admissions:enquiry_self_edit' row.enquiry.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                            {% else %}
+                                            <a href="{% url 'admissions:enquiry_self_edit' row.enquiry.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
                         <div class="campora-empty-state">
                             <i data-lucide="clock"></i>
-                            <p class="mb-0">Enquiry tracking is coming in a future update — for now, enquiries can be submitted from a college's course listing.</p>
+                            <p class="mb-0">You haven't submitted any enquiries yet — browse colleges and courses to get started.</p>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

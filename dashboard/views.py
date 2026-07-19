@@ -23,7 +23,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 from accounts.decorators import get_staff_college, role_required
 from accounts.forms import StaffCreationForm
 from accounts.models import User
+from admissions.forms import CorrectionRequestForm
 from admissions.models import Enquiry
+from admissions.services import (
+    can_staff_edit_personal_fields,
+    can_student_edit_enquiry,
+    create_correction_request,
+    enquiry_edit_deadline,
+    get_active_correction_request,
+    resolve_correction_request,
+)
 from courses.models import College, Course
 from .forms import SORT_FIELD_MAP, EnquiryFilterForm, EnquiryUpdateForm
 
@@ -208,10 +217,28 @@ def manage_staff(request):
 
 @role_required(User.Role.STUDENT)
 def student_dashboard(request):
-    """Student: profile summary. Enquiry tracking (linking a logged-in
-    student's own submitted enquiries to their dashboard) is a future
-    phase; the enquiry *submission* form itself now exists (Phase 4)."""
-    return render(request, "dashboard/student_dashboard.html")
+    """Student: profile summary + a list of their own submitted
+    enquiries (Phase 1, Feature 5/7 — "Student can view own enquiries" /
+    "edit own enquiry during edit window"). For each enquiry we compute
+    whether it's currently self-editable via the same
+    admissions.services.can_student_edit_enquiry used to gate the actual
+    edit view, so the "Edit" link/lock-state shown here can never drift
+    out of sync with what the edit view itself will allow.
+    """
+    enquiries = (
+        Enquiry.objects.filter(submitted_by=request.user)
+        .select_related("course", "college")
+        .prefetch_related("correction_requests")[:20]
+    )
+    enquiry_rows = [
+        {
+            "enquiry": enquiry,
+            "editable": can_student_edit_enquiry(enquiry, request.user),
+            "active_correction": get_active_correction_request(enquiry),
+        }
+        for enquiry in enquiries
+    ]
+    return render(request, "dashboard/student_dashboard.html", {"enquiry_rows": enquiry_rows})
 
 
 @role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
@@ -343,7 +370,14 @@ def enquiry_detail(request, pk):
             return redirect("core:home")
         enquiry = get_object_or_404(queryset, pk=pk, college=college)
 
-    return render(request, "dashboard/enquiry_detail.html", {"enquiry": enquiry})
+    context = {
+        "enquiry": enquiry,
+        "can_edit_personal": can_staff_edit_personal_fields(request.user),
+        "correction_requests": enquiry.correction_requests.select_related("requested_by", "resolved_by"),
+        "active_correction": get_active_correction_request(enquiry),
+        "correction_form": CorrectionRequestForm(),
+    }
+    return render(request, "dashboard/enquiry_detail.html", context)
 
 
 @role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
@@ -371,17 +405,27 @@ def enquiry_edit(request, pk):
             return redirect("core:home")
         enquiry = get_object_or_404(queryset, pk=pk, college=college)
 
+    can_edit_personal = can_staff_edit_personal_fields(request.user)
+
     if request.method == "POST":
-        form = EnquiryUpdateForm(request.POST, instance=enquiry, staff_college=college)
+        form = EnquiryUpdateForm(
+            request.POST, instance=enquiry, staff_college=college, can_edit_personal=can_edit_personal
+        )
         if form.is_valid():
             form.save()
             messages.success(request, f"Enquiry #{enquiry.pk} ({enquiry.full_name}) updated successfully.")
             return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
         messages.error(request, "Please correct the errors below and try again.")
     else:
-        form = EnquiryUpdateForm(instance=enquiry, staff_college=college)
+        form = EnquiryUpdateForm(instance=enquiry, staff_college=college, can_edit_personal=can_edit_personal)
 
-    return render(request, "dashboard/enquiry_edit.html", {"form": form, "enquiry": enquiry, "college": college})
+    context = {
+        "form": form,
+        "enquiry": enquiry,
+        "college": college,
+        "can_edit_personal": can_edit_personal,
+    }
+    return render(request, "dashboard/enquiry_edit.html", context)
 
 
 def _staff_scope(request):
@@ -524,3 +568,71 @@ def enquiry_permanent_delete(request, pk):
         logger.warning("Enquiry %s permanently deleted by %s", reference, request.user.username)
         messages.success(request, f"Enquiry {reference} permanently deleted.")
     return redirect("dashboard:enquiry_recycle_bin")
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def request_correction(request, pk):
+    """Phase 1, Feature 6 — staff asks the student to fix something on
+    their own enquiry, instead of editing the student's personal
+    information directly (which, per Feature 7, only a Platform Admin may
+    do). Same college-ownership scoping as enquiry_detail/enquiry_edit —
+    a College Admin/Staff user gets a 404 for another college's enquiry.
+
+    On a validation error, re-renders the full enquiry_detail page (not a
+    separate page) with the bound, errored form — the Request Correction
+    form lives inline on that page.
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return error
+
+    queryset = Enquiry.objects.select_related("course", "college", "submitted_by")
+    if college is not None:
+        queryset = queryset.filter(college=college)
+    enquiry = get_object_or_404(queryset, pk=pk)
+
+    if request.method != "POST":
+        return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
+
+    form = CorrectionRequestForm(request.POST)
+    if form.is_valid():
+        create_correction_request(
+            enquiry,
+            requested_by=request.user,
+            reason=form.cleaned_data["reason"],
+            message=form.cleaned_data.get("message", ""),
+        )
+        messages.success(request, f"Correction requested for Enquiry #{enquiry.pk}.")
+        return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
+
+    messages.error(request, "Please correct the errors below and try again.")
+    context = {
+        "enquiry": enquiry,
+        "can_edit_personal": can_staff_edit_personal_fields(request.user),
+        "correction_requests": enquiry.correction_requests.select_related("requested_by", "resolved_by"),
+        "active_correction": get_active_correction_request(enquiry),
+        "correction_form": form,
+    }
+    return render(request, "dashboard/enquiry_detail.html", context)
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def resolve_correction(request, pk, correction_pk):
+    """Phase 1, Feature 6 — staff reviews a student's response to a
+    Correction Request and marks it Resolved. Never automatic (per
+    Feature 6, "Do not automatically approve corrections") — this is the
+    one explicit, human, staff action that closes the loop. Same
+    college-ownership scoping as the rest of the enquiry-management views.
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return error
+
+    queryset = Enquiry.objects.all() if college is None else Enquiry.objects.filter(college=college)
+    enquiry = get_object_or_404(queryset, pk=pk)
+    correction = get_object_or_404(enquiry.correction_requests, pk=correction_pk)
+
+    if request.method == "POST":
+        resolve_correction_request(correction, resolved_by=request.user)
+        messages.success(request, f"Correction request for Enquiry #{enquiry.pk} marked resolved.")
+    return redirect("dashboard:enquiry_detail", pk=enquiry.pk)

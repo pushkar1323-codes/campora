@@ -15,7 +15,9 @@ so the College is always guaranteed to be consistent by construction.
 """
 from django import forms
 
-from .models import Enquiry
+from courses.models import Course
+
+from .models import CorrectionRequest, Enquiry
 
 _TEXT_INPUT = "form-control"
 _SELECT = "form-select"
@@ -88,3 +90,62 @@ class EnquiryForm(forms.ModelForm):
         if commit:
             enquiry.save()
         return enquiry
+
+
+class EnquirySelfEditForm(forms.ModelForm):
+    """Phase 1, Feature 5 — fields a student may edit on their own
+    enquiry, within the configurable edit window (see
+    admissions/services.py). Deliberately excludes every personal-
+    information field (Feature 1: personal information belongs to the
+    student's own profile, not the enquiry) and `staff_notes`
+    (staff-internal, never student-editable).
+
+    The Course field is intentionally restricted to the enquiry's current
+    college only (see __init__) — self-edit lets a student switch which
+    course at the *same* college they're enquiring about, not move their
+    enquiry to a different college.
+    """
+
+    class Meta:
+        model = Enquiry
+        fields = ["course", "qualification", "percentage", "admission_year"]
+        widgets = {
+            "course": forms.Select(attrs={"class": _SELECT}),
+            "qualification": forms.TextInput(attrs={
+                "class": _TEXT_INPUT, "placeholder": "e.g. Class 12 / Bachelor's Degree",
+            }),
+            "percentage": forms.NumberInput(attrs={
+                "class": _TEXT_INPUT, "step": "0.01", "min": "0", "max": "100",
+            }),
+            "admission_year": forms.NumberInput(attrs={"class": _TEXT_INPUT}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["course"].queryset = Course.objects.filter(
+                college=self.instance.college, is_active=True
+            ).order_by("course_name")
+
+
+class CorrectionRequestForm(forms.ModelForm):
+    """Phase 1, Feature 6 — staff-facing form to open a Correction Request
+    on an enquiry. `enquiry`, `requested_by` and `status` are set by the
+    view (see dashboard/views.py::request_correction), never by the form
+    itself — consistent with how every other staff action in this project
+    keeps ownership/actor data out of user-editable form fields.
+    """
+
+    class Meta:
+        model = CorrectionRequest
+        fields = ["reason", "message"]
+        widgets = {
+            "reason": forms.TextInput(attrs={
+                "class": _TEXT_INPUT,
+                "placeholder": "e.g. Incorrect phone number, Re-upload Class XII marksheet",
+            }),
+            "message": forms.Textarea(attrs={
+                "class": _TEXT_INPUT, "rows": 3,
+                "placeholder": "Optional additional detail for the student",
+            }),
+        }

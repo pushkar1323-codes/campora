@@ -149,3 +149,78 @@ class Enquiry(models.Model):
         """Undo a soft delete."""
         self.is_deleted = False
         self.save(update_fields=["is_deleted", "updated_at"])
+
+
+class CorrectionRequest(models.Model):
+    """Phase 1, Feature 6 — Request Correction workflow.
+
+    Replaces staff directly editing a student's personal information: staff
+    ask the student to fix something instead, the student edits it, and
+    staff review the result. Never auto-approved ("Do not automatically
+    approve corrections" — see Feature 6).
+
+    All status-transition logic (creating, marking responded, resolving)
+    lives in admissions/services.py rather than here or in a view — this
+    model only defines the data shape and the simplest read-only
+    properties. Because every transition goes through a normal
+    `.save()`/`.create()` call, Django dispatches its standard `post_save`
+    signal on each one; a future Timeline/Audit/Notification subscriber
+    (Phase 4B/4C) can attach a receiver to that signal to react to
+    Correction Request activity without any change to this model, to
+    admissions/services.py, or to any of their callers.
+    """
+
+    class Status(models.TextChoices):
+        OPEN = "OPEN", "Open"
+        RESPONDED = "RESPONDED", "Responded"
+        RESOLVED = "RESOLVED", "Resolved"
+
+    enquiry = models.ForeignKey(
+        Enquiry, on_delete=models.CASCADE, related_name="correction_requests"
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="correction_requests_made",
+        help_text="The staff member who asked for the correction.",
+    )
+    reason = models.CharField(
+        max_length=255,
+        help_text="Short reason, e.g. 'Incorrect phone number' or 'Re-upload Class XII marksheet'.",
+    )
+    message = models.TextField(
+        blank=True, help_text="Optional extra detail shown to the student."
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.OPEN, db_index=True
+    )
+    responded_at = models.DateTimeField(
+        null=True, blank=True, help_text="Set when the student saves an edit while this request is open."
+    )
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="correction_requests_resolved",
+        help_text="The staff member who reviewed and closed this request.",
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["enquiry", "status"]),
+        ]
+
+    def __str__(self):
+        return f"Correction request for Enquiry #{self.enquiry_id} ({self.get_status_display()})"
+
+    @property
+    def is_open(self):
+        """True while this request still needs student and/or staff
+        action (i.e. hasn't been resolved yet)."""
+        return self.status in (self.Status.OPEN, self.Status.RESPONDED)

@@ -1,0 +1,17 @@
+<!-- {# Reusable "Timeline" section for the Enquiry Detail page.
+   See enquiry_documents_section.html for the reasoning — a future phase
+   (Timeline Engine) implements automatic activity logging by editing this
+   file only. Correction Requests already publish normal Django
+   `post_save` signals (see admissions/services.py), so a Timeline
+   subscriber built later can render real events here without any change
+   to admissions/models.py, admissions/services.py, or the views that
+   call them. #} -->
+<div class="card">
+    <div class="card-body">
+        <h5 class="campora-heading mb-3">Timeline</h5>
+        <div class="campora-empty-state">
+            <i data-lucide="history"></i>
+            <p class="mb-0">No activity timeline has been recorded for this enquiry yet.</p>
+        </div>
+    </div>
+</div>
