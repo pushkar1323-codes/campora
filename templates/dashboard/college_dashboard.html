@@ -56,6 +56,84 @@
             </div>
         </div>
 
+        <div class="mb-4">
+            <h5 class="campora-heading mb-3">Quick Actions</h5>
+            <div class="row g-3">
+                {% if request.user.role == 'COLLEGE_ADMIN' %}
+                <div class="col-6 col-md-4 col-lg-3">
+                    <a href="{% url 'admin:index' %}" class="card quick-action-card">
+                        <div class="card-body">
+                            <div class="quick-action-icon"><i data-lucide="shield" style="width:20px;height:20px;"></i></div>
+                            <div class="fw-semibold">Administration Panel</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-4 col-lg-3">
+                    <a href="{% url 'admin:courses_course_changelist' %}" class="card quick-action-card">
+                        <div class="card-body">
+                            <div class="quick-action-icon"><i data-lucide="book-open" style="width:20px;height:20px;"></i></div>
+                            <div class="fw-semibold">Manage Courses</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-4 col-lg-3">
+                    <a href="{% url 'dashboard:manage_staff' %}" class="card quick-action-card">
+                        <div class="card-body">
+                            <div class="quick-action-icon"><i data-lucide="user-cog" style="width:20px;height:20px;"></i></div>
+                            <div class="fw-semibold">Manage Staff</div>
+                        </div>
+                    </a>
+                </div>
+                {% endif %}
+                <div class="col-6 col-md-4 col-lg-3">
+                    <a href="{% url 'dashboard:enquiry_list' %}" class="card quick-action-card">
+                        <div class="card-body">
+                            <div class="quick-action-icon"><i data-lucide="clipboard-list" style="width:20px;height:20px;"></i></div>
+                            <div class="fw-semibold">Admission Enquiries</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-4 col-lg-3">
+                    <a href="#analytics" class="card quick-action-card">
+                        <div class="card-body">
+                            <div class="quick-action-icon"><i data-lucide="bar-chart-3" style="width:20px;height:20px;"></i></div>
+                            <div class="fw-semibold">College Analytics</div>
+                        </div>
+                    </a>
+                </div>
+                {% if request.user.role == 'COLLEGE_ADMIN' %}
+                <div class="col-6 col-md-4 col-lg-3">
+                    <div class="card quick-action-card quick-action-disabled" title="Coming soon">
+                        <div class="card-body">
+                            <div class="quick-action-icon"><i data-lucide="trending-up" style="width:20px;height:20px;"></i></div>
+                            <div class="fw-semibold">Reports</div>
+                            <span class="badge bg-secondary-subtle text-secondary mt-1">Coming Soon</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="analytics" class="row g-3 mb-4">
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Enquiries by Status</h5>
+                        {% if stats.enquiry_count %}
+                        <canvas id="statusChart" height="260" role="img"
+                                aria-label="Doughnut chart of enquiry counts per status"></canvas>
+                        {% else %}
+                        <div class="campora-empty-state">
+                            <i data-lucide="pie-chart"></i>
+                            <p class="mb-0">No enquiries yet for {{ college.name }}.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
