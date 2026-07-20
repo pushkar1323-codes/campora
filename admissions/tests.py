@@ -191,3 +191,55 @@ class EnquiryCreateRegressionTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Enquiry.objects.filter(email="anon@example.com", submitted_by__isnull=True).exists())
+
+
+class EnquiryConversationViewTests(TestCase):
+    """Phase 2A: student-facing conversation view, ownership + generic
+    thread-permission enforcement, and the CorrectionRequest -> system
+    message integration."""
+
+    def setUp(self):
+        self.college, self.course = _make_college_and_course()
+        self.student = User.objects.create_user(
+            username="student1", password="pass12345", role=User.Role.STUDENT, email="s1@example.com"
+        )
+        StudentProfile.objects.create(user=self.student, phone="9999999999")
+        self.other_student = User.objects.create_user(username="student2", password="pass12345", role=User.Role.STUDENT)
+        self.staff = User.objects.create_user(username="staff1", password="pass12345", role=User.Role.COLLEGE_STAFF)
+        self.enquiry = Enquiry.objects.create(
+            full_name="Student One", father_name="F", email="s1@example.com", mobile="9999999999",
+            address="Addr", dob="2000-01-01", gender="M", course=self.course,
+            qualification="Class 12", percentage=80, admission_year=2026, submitted_by=self.student,
+        )
+
+    def test_owner_can_view_conversation(self):
+        self.client.login(username="student1", password="pass12345")
+        response = self.client.get(reverse("admissions:enquiry_conversation", args=[self.enquiry.pk]))
+        self.assertEqual(response.status_code, 200)
+
+    def test_non_owner_gets_404(self):
+        self.client.login(username="student2", password="pass12345")
+        response = self.client.get(reverse("admissions:enquiry_conversation", args=[self.enquiry.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_student_can_send_message(self):
+        self.client.login(username="student1", password="pass12345")
+        response = self.client.post(
+            reverse("admissions:enquiry_conversation", args=[self.enquiry.pk]), {"content": "Hello staff"}
+        )
+        self.assertEqual(response.status_code, 302)
+        from communication.services import CommunicationService
+        latest = CommunicationService.get_latest_message(self.enquiry)
+        self.assertEqual(latest.content, "Hello staff")
+        self.assertEqual(latest.sender, self.student)
+
+    def test_correction_request_posts_system_message(self):
+        from admissions.services import create_correction_request
+        from communication.services import CommunicationService
+
+        create_correction_request(self.enquiry, requested_by=self.staff, reason="Incorrect phone number")
+        latest = CommunicationService.get_latest_message(self.enquiry)
+        self.assertIsNotNone(latest)
+        self.assertTrue(latest.is_system_generated)
+        self.assertIn("Incorrect phone number", latest.content)
+        self.assertIsNone(latest.sender)

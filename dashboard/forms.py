@@ -96,13 +96,13 @@ class EnquiryFilterForm(forms.Form):
         — the same rule the rest of the app follows, applied here too:
 
         - The `college` field is removed entirely. A College Admin/Staff
-        user's scope is always their own college, decided server-side in
-        the view — never something they could override via the
-        querystring.
+          user's scope is always their own college, decided server-side in
+          the view — never something they could override via the
+          querystring.
         - The `course` field's choices are restricted to that college's
-        courses only, so a crafted `?course=<id>` for another college's
-        course simply matches nothing (never leaks another college's
-        course list, never lets them filter into another college).
+          courses only, so a crafted `?course=<id>` for another college's
+          course simply matches nothing (never leaks another college's
+          course list, never lets them filter into another college).
 
         With `staff_college=None` (Platform Admin), both fields cover
         every college/course on the platform.
@@ -206,13 +206,13 @@ class EnquiryUpdateForm(forms.ModelForm):
         the same rule EnquiryFilterForm follows:
 
         - The `college` field's queryset is restricted to just that one
-        college and the field is `disabled` — Django disabled fields
-        always use their `initial` value and silently ignore whatever
-        was actually submitted, so even a hand-crafted POST body can't
-        move the enquiry to another college.
+          college and the field is `disabled` — Django disabled fields
+          always use their `initial` value and silently ignore whatever
+          was actually submitted, so even a hand-crafted POST body can't
+          move the enquiry to another college.
         - The `course` field's choices are restricted to that college's
-        courses only, so there is no course to pick that would move the
-        enquiry elsewhere even before `clean()` runs.
+          courses only, so there is no course to pick that would move the
+          enquiry elsewhere even before `clean()` runs.
 
         With `staff_college=None` (Platform Admin), both fields cover
         every college/course on the platform, and `college` starts

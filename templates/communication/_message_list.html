@@ -1,0 +1,46 @@
+{# Reusable message-list display for the Communication System (Phase 2A).
+   Included identically from both the staff (dashboard) and student
+   (admissions) conversation views — no duplicated markup.
+
+   Expected context:
+     messages_list  -- queryset/list of communication.Message (chronological)
+     edit_url_name   -- e.g. "dashboard:message_edit" / "admissions:message_edit"
+     delete_url_name -- e.g. "dashboard:message_delete" / "admissions:message_delete"
+#}
+<div class="d-flex flex-column gap-3">
+    {% for message in messages_list %}
+    <div class="d-flex {% if message.sender_id == request.user.id %}justify-content-end{% endif %}">
+        <div class="p-3 rounded-3 {% if message.is_system_generated %}bg-secondary-subtle text-secondary small w-100 text-center{% elif message.sender_id == request.user.id %}bg-primary-subtle{% else %}bg-body-secondary{% endif %}" style="max-width: 75%;">
+            {% if not message.is_system_generated %}
+            <div class="small text-muted mb-1">
+                <strong>{{ message.sender.get_full_name|default:message.sender.username|default:"Unknown" }}</strong>
+                <span class="text-muted">&middot; {{ message.sender_role }}</span>
+            </div>
+            {% endif %}
+            <div style="white-space: pre-wrap;">{{ message.content }}</div>
+            <div class="small text-muted mt-1">
+                {{ message.created_at|date:"M d, Y, g:i a" }}
+                {% if message.is_edited %}&middot; edited{% endif %}
+                {% if not message.is_system_generated and message.sender_id == request.user.id %}
+                    &middot; {% if message.is_read %}Read{% else %}Sent{% endif %}
+                {% endif %}
+            </div>
+            {% if not message.is_system_generated and message.sender_id == request.user.id %}
+            <div class="mt-2 d-flex gap-2">
+                <a href="{% url edit_url_name message.pk %}" class="small">Edit</a>
+                <form method="post" action="{% url delete_url_name message.pk %}" class="d-inline"
+                      onsubmit="return confirm('Delete this message?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-link btn-sm p-0 small text-danger">Delete</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="campora-empty-state">
+        <i data-lucide="message-square"></i>
+        <p class="mb-0">No messages yet — start the conversation below.</p>
+    </div>
+    {% endfor %}
+</div>

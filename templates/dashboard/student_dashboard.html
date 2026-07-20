@@ -79,6 +79,12 @@
                                             {% else %}
                                             <a href="{% url 'admissions:enquiry_self_edit' row.enquiry.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
                                             {% endif %}
+<<<<<<< HEAD
+=======
+                                            <a href="{% url 'admissions:enquiry_conversation' row.enquiry.pk %}" class="btn btn-sm btn-outline-primary">
+                                                Messages
+                                            </a>
+>>>>>>> ea2d4fb (Add enterprise communication system with correction request workflow)
                                         </td>
                                     </tr>
                                     {% endfor %}

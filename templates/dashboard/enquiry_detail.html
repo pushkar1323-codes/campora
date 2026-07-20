@@ -14,7 +14,11 @@
                 Edit
             </a>
             <form method="post" action="{% url 'dashboard:enquiry_delete' enquiry.pk %}"
+<<<<<<< HEAD
                 onsubmit="return confirm('Move this enquiry to the Recycle Bin? You can restore it later.');">
+=======
+                  onsubmit="return confirm('Move this enquiry to the Recycle Bin? You can restore it later.');">
+>>>>>>> ea2d4fb (Add enterprise communication system with correction request workflow)
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-danger">
                     <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
@@ -35,11 +39,19 @@
             <div class="col-lg-8">
 
                 <!-- Student Information: read-only for every role except a Platform
+<<<<<<< HEAD
                     Admin (who edits via the Edit page's Platform Admin Override
                     section, never here) — Phase 1, Feature 1 & 3. Personal
                     information belongs to the student's own profile, not the
                     admission workflow; staff use "Request a Correction" below
                     instead of an edit button. -->
+=======
+                     Admin (who edits via the Edit page's Platform Admin Override
+                     section, never here) — Phase 1, Feature 1 & 3. Personal
+                     information belongs to the student's own profile, not the
+                     admission workflow; staff use "Request a Correction" below
+                     instead of an edit button. -->
+>>>>>>> ea2d4fb (Add enterprise communication system with correction request workflow)
                 <div class="card mb-4">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-3">

@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'admissions',
     'courses',
     'dashboard',
+    'communication',
 ]
 
 MIDDLEWARE = [

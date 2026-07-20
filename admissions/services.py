@@ -31,6 +31,9 @@ import logging
 from django.conf import settings
 from django.utils import timezone
 
+from communication.models import Message
+from communication.services import CommunicationService
+
 from .models import CorrectionRequest, Enquiry
 
 logger = logging.getLogger(__name__)
@@ -108,6 +111,20 @@ def can_staff_edit_personal_fields(user):
 def create_correction_request(enquiry, requested_by, reason, message=""):
     """Feature 6: staff asks the student to fix something, instead of
     editing the student's information directly.
+
+    Phase 2A wiring: also posts a CORRECTION_REQUEST-typed system message
+    into the enquiry's communication thread, via CommunicationService —
+    this module never touches communication's models/ContentType
+    directly (see communication/services.py's own module docstring).
+    This is the one concrete "system message" trigger built this phase
+    (see PROMPTS_PART_3/Phase 2A's own scope note excluding a full
+    Enquiry-lifecycle event system for now):
+
+        CorrectionRequest -> CommunicationService.post_system_message() -> (future) Event Publisher
+
+    A future Event Publisher can be added by having post_system_message()
+    itself additionally publish an event — nothing here needs to change
+    for that.
     """
     correction = CorrectionRequest.objects.create(
         enquiry=enquiry, requested_by=requested_by, reason=reason, message=message,
@@ -115,6 +132,15 @@ def create_correction_request(enquiry, requested_by, reason, message=""):
     logger.info(
         "Correction requested on Enquiry #%s by %s: %s",
         enquiry.pk, requested_by.username, reason,
+    )
+    system_message = f"A correction was requested: {reason}"
+    if message:
+        system_message += f" — {message}"
+    CommunicationService.post_system_message(
+        enquiry,
+        content=system_message,
+        message_type=Message.Type.CORRECTION_REQUEST,
+        metadata={"correction_request_id": correction.pk},
     )
     return correction
 

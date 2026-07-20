@@ -19,8 +19,14 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
+from communication import permissions as comm_permissions
+from communication.forms import MessageEditForm, MessageForm
+from communication.models import Message
+from communication.services import CommunicationService
 from courses.models import College, Course
 
 from .forms import EnquiryForm, EnquirySelfEditForm
@@ -143,3 +149,100 @@ def enquiry_self_edit(request, pk):
 
     context["form"] = form
     return render(request, "admissions/enquiry_self_edit.html", context)
+
+
+@login_required
+def enquiry_conversation(request, pk):
+    """Phase 2A, Feature 1/10 — a Student views/replies in their own
+    enquiry's communication thread. Ownership-scoped exactly like
+    enquiry_self_edit (submitted_by=request.user, 404 for anyone else's
+    enquiry) — that scoping is this view's entire domain-level
+    authorization; it then explicitly makes the (now-authorized) student
+    an active thread participant via CommunicationService.add_participant,
+    which is what lets communication.permissions.can_view_thread /
+    can_send_message pass for them afterwards. See
+    communication/permissions.py's module docstring for the full
+    two-tier reasoning.
+    """
+    enquiry = get_object_or_404(
+        Enquiry.objects.select_related("course", "college"),
+        pk=pk, submitted_by=request.user,
+    )
+    CommunicationService.add_participant(enquiry, request.user, role_label=request.user.get_role_display())
+    CommunicationService.mark_thread_read(enquiry, request.user)
+
+    if request.method == "POST":
+        form = MessageForm(request.POST)
+        if comm_permissions.can_send_message(request.user, enquiry) and form.is_valid():
+            CommunicationService.post_message(
+                enquiry, sender=request.user, content=form.cleaned_data["content"],
+                sender_role=request.user.get_role_display(),
+            )
+            messages.success(request, "Message sent.")
+            return redirect("admissions:enquiry_conversation", pk=enquiry.pk)
+        messages.error(request, "Message cannot be empty.")
+    else:
+        form = MessageForm()
+
+    context = {
+        "enquiry": enquiry,
+        "messages_list": CommunicationService.get_messages(enquiry),
+        "message_form": form,
+        "reply_url": reverse("admissions:enquiry_conversation", args=[enquiry.pk]),
+    }
+    return render(request, "admissions/enquiry_conversation.html", context)
+
+
+def _get_own_message_or_404(request, pk):
+    """Shared lookup for the student-facing message_edit/message_delete
+    views below: ownership is checked via the thread's owner object's
+    own `submitted_by` — domain knowledge that belongs here in admissions,
+    never inside the communication app itself (see
+    communication/permissions.py's module docstring).
+    """
+    message = get_object_or_404(
+        Message.objects.select_related("thread", "sender"), pk=pk, is_deleted=False,
+    )
+    owner = message.thread.content_object
+    if getattr(owner, "submitted_by_id", None) != request.user.id:
+        raise Http404("No message matches the given query.")
+    return message, owner
+
+
+@login_required
+def message_edit(request, pk):
+    """Phase 2A, Feature 6 — a Student edits their own message. Ownership
+    of the *enquiry* is checked here (domain-specific); whether *this
+    particular message* may be edited is delegated to
+    communication.permissions.can_edit_message (generic: sender-only,
+    USER type, not deleted).
+    """
+    message, owner = _get_own_message_or_404(request, pk)
+    if not comm_permissions.can_edit_message(request.user, message):
+        raise Http404("No message matches the given query.")
+
+    cancel_url = reverse("admissions:enquiry_conversation", args=[owner.pk])
+
+    if request.method == "POST":
+        form = MessageEditForm(request.POST, instance=message)
+        if form.is_valid():
+            CommunicationService.edit_message(message, form.cleaned_data["content"], edited_by=request.user)
+            messages.success(request, "Message updated.")
+            return redirect(cancel_url)
+    else:
+        form = MessageEditForm(instance=message)
+
+    return render(request, "communication/message_edit.html", {"form": form, "cancel_url": cancel_url})
+
+
+@login_required
+def message_delete(request, pk):
+    """Phase 2A, Feature 7 — a Student soft-deletes their own message."""
+    message, owner = _get_own_message_or_404(request, pk)
+    if not comm_permissions.can_delete_message(request.user, message):
+        raise Http404("No message matches the given query.")
+
+    if request.method == "POST":
+        CommunicationService.delete_message(message, deleted_by=request.user)
+        messages.success(request, "Message deleted.")
+    return redirect("admissions:enquiry_conversation", pk=owner.pk)

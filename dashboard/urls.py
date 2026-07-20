@@ -33,5 +33,12 @@ urlpatterns = [
         views.resolve_correction,
         name="resolve_correction",
     ),
+    path(
+        "enquiries/<int:pk>/messages/reply/",
+        views.enquiry_message_reply,
+        name="enquiry_message_reply",
+    ),
+    path("messages/<int:pk>/edit/", views.message_edit, name="message_edit"),
+    path("messages/<int:pk>/delete/", views.message_delete, name="message_delete"),
     path("student/", views.student_dashboard, name="student"),
 ]

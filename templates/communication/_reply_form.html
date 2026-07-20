@@ -1,0 +1,14 @@
+{# Reusable reply-form partial. Expected context: `message_form`, `reply_url`. #}
+<form method="post" action="{{ reply_url }}" class="mt-3">
+    {% csrf_token %}
+    <div class="input-group">
+        {{ message_form.content }}
+        <button type="submit" class="btn btn-primary">
+            <i data-lucide="send" style="width:16px;height:16px;"></i>
+            Send
+        </button>
+    </div>
+    {% if message_form.content.errors %}
+    <div class="text-danger small mt-1" role="alert">{{ message_form.content.errors|join:", " }}</div>
+    {% endif %}
+</form>

@@ -18,7 +18,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from accounts.decorators import get_staff_college, role_required
 from accounts.forms import StaffCreationForm
@@ -33,6 +35,10 @@ from admissions.services import (
     get_active_correction_request,
     resolve_correction_request,
 )
+from communication import permissions as comm_permissions
+from communication.forms import MessageEditForm, MessageForm
+from communication.models import Message
+from communication.services import CommunicationService
 from courses.models import College, Course
 from .forms import SORT_FIELD_MAP, EnquiryFilterForm, EnquiryUpdateForm
 
@@ -370,12 +376,26 @@ def enquiry_detail(request, pk):
             return redirect("core:home")
         enquiry = get_object_or_404(queryset, pk=pk, college=college)
 
+    # Phase 2A: staff is added as a thread participant (and the thread's
+    # unread-from-staff messages marked read) the moment they view the
+    # enquiry -- CommunicationService owns the ContentType/GenericForeignKey
+    # resolution entirely; this view only ever passes it the Enquiry
+    # instance. Staff access to the thread itself relies on the
+    # college-ownership scoping already performed above (get_object_or_404
+    # against `queryset`), not on a generic participant check -- see
+    # communication/permissions.py's module docstring for why.
+    CommunicationService.add_participant(enquiry, request.user, role_label=request.user.get_role_display())
+    CommunicationService.mark_thread_read(enquiry, request.user)
+
     context = {
         "enquiry": enquiry,
         "can_edit_personal": can_staff_edit_personal_fields(request.user),
         "correction_requests": enquiry.correction_requests.select_related("requested_by", "resolved_by"),
         "active_correction": get_active_correction_request(enquiry),
         "correction_form": CorrectionRequestForm(),
+        "messages_list": CommunicationService.get_messages(enquiry),
+        "message_form": MessageForm(),
+        "reply_url": reverse("dashboard:enquiry_message_reply", args=[enquiry.pk]),
     }
     return render(request, "dashboard/enquiry_detail.html", context)
 
@@ -612,6 +632,9 @@ def request_correction(request, pk):
         "correction_requests": enquiry.correction_requests.select_related("requested_by", "resolved_by"),
         "active_correction": get_active_correction_request(enquiry),
         "correction_form": form,
+        "messages_list": CommunicationService.get_messages(enquiry),
+        "message_form": MessageForm(),
+        "reply_url": reverse("dashboard:enquiry_message_reply", args=[enquiry.pk]),
     }
     return render(request, "dashboard/enquiry_detail.html", context)
 
@@ -636,3 +659,100 @@ def resolve_correction(request, pk, correction_pk):
         resolve_correction_request(correction, resolved_by=request.user)
         messages.success(request, f"Correction request for Enquiry #{enquiry.pk} marked resolved.")
     return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def enquiry_message_reply(request, pk):
+    """Phase 2A, Feature 1/10 — staff replies in an enquiry's
+    communication thread. Same college-ownership scoping as every other
+    staff enquiry action (get_object_or_404 against a college-scoped
+    queryset) -- this view never touches ContentType/GenericForeignKey
+    directly, only CommunicationService.post_message(enquiry, ...), which
+    also transparently makes the replying staff member a thread
+    participant (see CommunicationService.post_message's own docstring).
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return error
+
+    queryset = Enquiry.objects.all() if college is None else Enquiry.objects.filter(college=college)
+    enquiry = get_object_or_404(queryset, pk=pk)
+
+    if request.method == "POST":
+        form = MessageForm(request.POST)
+        if form.is_valid():
+            CommunicationService.post_message(
+                enquiry, sender=request.user, content=form.cleaned_data["content"],
+                sender_role=request.user.get_role_display(),
+            )
+            messages.success(request, "Message sent.")
+        else:
+            messages.error(request, "Message cannot be empty.")
+    return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
+
+
+def _get_editable_message_for_staff(request, pk):
+    """Shared lookup for message_edit/message_delete: college-scoped via
+    the message's own enquiry (walked generically -- this view doesn't
+    know or care that the thread's owner happens to be an Enquiry; it
+    only needs `thread.content_object` to check permissions the same way
+    every other staff action in this app does). Returns
+    (message, college, error_response).
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return None, college, error
+    message = get_object_or_404(
+        Message.objects.select_related("thread", "sender"), pk=pk, is_deleted=False,
+    )
+    owner = message.thread.content_object
+    if college is not None and getattr(owner, "college_id", None) != college.id:
+        raise Http404("No message matches the given query.")
+    return message, college, None
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def message_edit(request, pk):
+    """Phase 2A, Feature 6 — edit own message. Permission delegated
+    entirely to communication.permissions.can_edit_message (generic:
+    sender-only, USER type, not deleted) -- college scoping above only
+    establishes that this staff member may be looking at this enquiry's
+    thread at all; can_edit_message is what actually decides whether
+    *this* message is theirs to edit.
+    """
+    message, college, error = _get_editable_message_for_staff(request, pk)
+    if error:
+        return error
+    if not comm_permissions.can_edit_message(request.user, message):
+        raise Http404("No message matches the given query.")
+
+    owner = message.thread.content_object
+    cancel_url = reverse("dashboard:enquiry_detail", args=[owner.pk])
+
+    if request.method == "POST":
+        form = MessageEditForm(request.POST, instance=message)
+        if form.is_valid():
+            CommunicationService.edit_message(message, form.cleaned_data["content"], edited_by=request.user)
+            messages.success(request, "Message updated.")
+            return redirect(cancel_url)
+    else:
+        form = MessageEditForm(instance=message)
+
+    return render(request, "communication/message_edit.html", {"form": form, "cancel_url": cancel_url})
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def message_delete(request, pk):
+    """Phase 2A, Feature 7 — soft-delete own message. Same permission
+    delegation as message_edit above."""
+    message, college, error = _get_editable_message_for_staff(request, pk)
+    if error:
+        return error
+    if not comm_permissions.can_delete_message(request.user, message):
+        raise Http404("No message matches the given query.")
+
+    owner = message.thread.content_object
+    if request.method == "POST":
+        CommunicationService.delete_message(message, deleted_by=request.user)
+        messages.success(request, "Message deleted.")
+    return redirect("dashboard:enquiry_detail", pk=owner.pk)

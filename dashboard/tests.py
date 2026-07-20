@@ -117,3 +117,90 @@ class CorrectionRequestWorkflowTests(TestCase):
         correction.refresh_from_db()
         self.assertEqual(correction.status, CorrectionRequest.Status.RESOLVED)
         self.assertEqual(correction.resolved_by, self.staff)
+
+
+class EnquiryMessageReplyViewTests(TestCase):
+    """Phase 2A: staff replies through the dashboard, scoped by the same
+    college-ownership rules as every other staff enquiry action."""
+
+    def setUp(self):
+        self.college, self.course = _make_college_and_course()
+        self.other_college, self.other_course = _make_college_and_course(name="Other College", slug="other-college-msg")
+        self.staff = User.objects.create_user(username="staff1", password="pass12345", role=User.Role.COLLEGE_STAFF, is_staff=True)
+        StaffProfile.objects.create(user=self.staff, college=self.college, designation="Staff")
+        self.other_staff = User.objects.create_user(username="staff2", password="pass12345", role=User.Role.COLLEGE_STAFF, is_staff=True)
+        StaffProfile.objects.create(user=self.other_staff, college=self.other_college, designation="Staff")
+        self.enquiry = Enquiry.objects.create(
+            full_name="Student One", father_name="F", email="s1@example.com", mobile="9999999999",
+            address="Addr", dob="2000-01-01", gender="M", course=self.course,
+            qualification="Class 12", percentage=80, admission_year=2026,
+        )
+
+    def test_staff_can_reply_on_own_college_enquiry(self):
+        self.client.login(username="staff1", password="pass12345")
+        response = self.client.post(
+            reverse("dashboard:enquiry_message_reply", args=[self.enquiry.pk]), {"content": "Please upload your marksheet."}
+        )
+        self.assertEqual(response.status_code, 302)
+        from communication.services import CommunicationService
+        latest = CommunicationService.get_latest_message(self.enquiry)
+        self.assertEqual(latest.content, "Please upload your marksheet.")
+        self.assertEqual(latest.sender, self.staff)
+
+    def test_staff_cannot_reply_on_other_college_enquiry(self):
+        self.client.login(username="staff2", password="pass12345")
+        response = self.client.post(
+            reverse("dashboard:enquiry_message_reply", args=[self.enquiry.pk]), {"content": "Not allowed"}
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_enquiry_detail_marks_thread_read_for_staff(self):
+        from communication.services import CommunicationService
+        student = User.objects.create_user(username="student1", password="pass12345", role=User.Role.STUDENT)
+        self.enquiry.submitted_by = student
+        self.enquiry.save()
+        CommunicationService.post_message(self.enquiry, sender=student, content="Hi")
+        self.assertEqual(CommunicationService.get_unread_count(self.enquiry, self.staff), 1)
+
+        self.client.login(username="staff1", password="pass12345")
+        self.client.get(reverse("dashboard:enquiry_detail", args=[self.enquiry.pk]))
+        self.assertEqual(CommunicationService.get_unread_count(self.enquiry, self.staff), 0)
+
+
+class MessageEditDeleteViewTests(TestCase):
+    def setUp(self):
+        self.college, self.course = _make_college_and_course()
+        self.staff = User.objects.create_user(username="staff1", password="pass12345", role=User.Role.COLLEGE_STAFF, is_staff=True)
+        StaffProfile.objects.create(user=self.staff, college=self.college, designation="Staff")
+        self.other_staff = User.objects.create_user(username="staff2", password="pass12345", role=User.Role.COLLEGE_STAFF, is_staff=True)
+        StaffProfile.objects.create(user=self.other_staff, college=self.college, designation="Staff")
+        self.enquiry = Enquiry.objects.create(
+            full_name="Student One", father_name="F", email="s1@example.com", mobile="9999999999",
+            address="Addr", dob="2000-01-01", gender="M", course=self.course,
+            qualification="Class 12", percentage=80, admission_year=2026,
+        )
+        from communication.services import CommunicationService
+        self.message = CommunicationService.post_message(self.enquiry, sender=self.staff, content="Original")
+
+    def test_sender_can_edit_own_message(self):
+        self.client.login(username="staff1", password="pass12345")
+        response = self.client.post(
+            reverse("dashboard:message_edit", args=[self.message.pk]), {"content": "Updated"}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.message.refresh_from_db()
+        self.assertEqual(self.message.content, "Updated")
+        self.assertTrue(self.message.is_edited)
+
+    def test_other_staff_cannot_edit_message(self):
+        self.client.login(username="staff2", password="pass12345")
+        response = self.client.get(reverse("dashboard:message_edit", args=[self.message.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_sender_can_delete_own_message(self):
+        self.client.login(username="staff1", password="pass12345")
+        response = self.client.post(reverse("dashboard:message_delete", args=[self.message.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.message.refresh_from_db()
+        self.assertTrue(self.message.is_deleted)
+        self.assertEqual(self.message.deleted_by, self.staff)

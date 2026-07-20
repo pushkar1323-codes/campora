@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Edit Message - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4">
+        <h1 class="campora-heading mb-1">Edit Message</h1>
+    </div>
+</section>
+<section>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <form method="post" novalidate>
+                            {% csrf_token %}
+                            {{ form.content }}
+                            {% if form.content.errors %}
+                            <div class="text-danger small mt-1" role="alert">{{ form.content.errors|join:", " }}</div>
+                            {% endif %}
+                            <div class="d-flex gap-2 mt-3">
+                                <button type="submit" class="btn btn-primary">Save</button>
+                                <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

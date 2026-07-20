@@ -57,7 +57,7 @@ Implemented so far:
   (grouped by college), Contact (platform-level, validated enquiry form)
 - Reusable `course_card` / `college_card` template partials
 - Structured logging configured (console handler, per-app loggers)
-- **Admission Enquiry submission** : students submit a course-
+- **Admission Enquiry submission** (Phase 4): students submit a course-
   specific enquiry directly from a college's "Enquire Now" button — no
   College/Course dropdown to fill in, since the course (and its college)
   is fixed by the page the student came from. Works anonymously per
@@ -65,13 +65,13 @@ Implemented so far:
   account when one is signed in. Server-side validated (Django Forms,
   reusing the existing field validators), Post/Redirect/Get, with a
   confirmation page showing a reference number.
-- **Enquiry Management** : staff-facing listing (paginated,
+- **Enquiry Management** (Phase 5): staff-facing listing (paginated,
   20/page) and detail views under `/dashboard/enquiries/`. Platform Admin
   sees every enquiry; College Admin/Staff see only their own college's
   enquiries (ownership-enforced — another college's enquiry 404s rather
   than 403s, so its existence isn't even confirmed). Every row/detail page
   always shows the associated College and Course.
-- **Search, Filter & Sorting** : the enquiry listing now supports
+- **Search, Filter & Sorting** (Phase 6): the enquiry listing now supports
   live search (student name, mobile, email, college or course — matches
   any of them), filters (college — Platform Admin only, course, gender,
   status, admission year), and sortable columns (student name, college,
@@ -145,6 +145,24 @@ Implemented so far:
   admin at `/admin/`, replacing the default Django admin entirely. See
   the dedicated **Administration Panel** section below for the full
   architecture, security model, and testing detail.
+
+- **Secure Admission Workflow** (not a numbered `IMPLEMENTATION_PLAN.docx`
+  phase — Phase 1 of a separate Master Implementation Roadmap): personal
+  information (name/email/phone/address/DOB) is owned and edited only by
+  the student who owns it — never by College Staff/Admin, who instead use
+  a **Request Correction** workflow; a student may self-edit their own
+  enquiry's admission-workflow fields for a configurable window after
+  submission; Platform Admin retains a full-access override, the only
+  path to correct an anonymous/guest enquiry's data.
+- **Enterprise Communication System** (Phase 2A of the same roadmap): a
+  reusable `communication` app — `MessageThread`/`ThreadParticipant`/
+  `Message`, generic via `ContentType` so it isn't tied to `Enquiry` and
+  can be reused by future modules (Hostel, Scholarships, Placements, ...)
+  without redesign. All access goes through `CommunicationService` —
+  no other app touches `ContentType`/`GenericForeignKey` directly.
+  Students and staff exchange messages per-enquiry, with edit/soft-delete,
+  read-status tracking, and automatic system messages (e.g. a Correction
+  Request being opened posts one automatically).
 
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
 CSV/Excel export, AWS deployment.
@@ -349,6 +367,9 @@ college_admission/
 ├── courses/          # College model (approval workflow) + Course model
 ├── dashboard/         # Role-scoped dashboards (Platform/College/Student)
 │                     # + staff-facing Enquiry Management (listing/detail)
+├── communication/     # Reusable Communication System (MessageThread,
+│                     # ThreadParticipant, Message) -- generic, not tied
+│                     # to Enquiry; see CommunicationService
 ├── core/              # Public website (Home, About, Colleges, Courses,
 │                     # Contact) + seed_data command
 ├── config/            # Django project settings, root URLs, WSGI/ASGI
@@ -418,7 +439,7 @@ college_admission/
 This phase introduces `accounts.User` as `AUTH_USER_MODEL`. Django does
 not support switching to a custom user model once migrations have been
 applied against the default one — so if you previously ran `migrate` on
-this project , **you must drop and recreate your local
+this project (Phases 1–3), **you must drop and recreate your local
 database** before running `migrate` again. This is a one-time step; there
 is no real production data to lose at this stage (only seeded/test data).
 
@@ -463,20 +484,20 @@ Search/filter/sort (Phase 6), edit (Phase 7), and delete/restore
 
 ## AWS Deployment
 
-Planned : EC2 + Gunicorn + Nginx + Amazon RDS + EBS + S3.
+Planned for Phases 13–14: EC2 + Gunicorn + Nginx + Amazon RDS + EBS + S3.
 Not yet implemented.
 
 ## Testing Checklist
 
-- [x] `python manage.py check` passes, static files collect, all
+- [x] Phase 1: `python manage.py check` passes, static files collect, all
       routes return correct HTTP responses, base template renders correctly
-- [x] Migrations apply cleanly (`courses.0001_initial`,
+- [x] Phase 2: Migrations apply cleanly (`courses.0001_initial`,
       `admissions.0001_initial`); `seed_data` command is idempotent; model
       validators correctly reject invalid mobile numbers, out-of-range
       percentages, and past admission years; soft-delete manager correctly
       excludes deleted records by default; Django admin verified end-to-end
       (login, Course list, Enquiry list including soft-deleted rows)
-- [x] Home/About/Courses/Contact routes all return 200; Courses
+- [x] Phase 3: Home/About/Courses/Contact routes all return 200; Courses
       page correctly lists only active courses (5 of 6 seeded, excluding
       the inactive Diploma); Contact form rejects invalid input (6 inline
       errors shown) and accepts valid input (302 redirect, success message
@@ -498,7 +519,7 @@ Not yet implemented.
       college and confirming the created account was scoped to the
       *actor's* college regardless); `seed_data` idempotency re-confirmed
       after the rewrite
-- [x] Admission Enquiry submission verified end-to-end via
+- [x] Phase 4: Admission Enquiry submission verified end-to-end via
       Django's test client — GET the enquiry form for a live course
       (200); valid POST creates an `Enquiry` with `college` correctly
       auto-derived from the course's college, then redirects (302) to a
@@ -507,7 +528,7 @@ Not yet implemented.
       enquiry URLs for an inactive course or a nonexistent course both
       correctly return 404; Home/Colleges/College Detail/Courses/Contact
       re-verified with no regressions
-- [x] Enquiry Management verified end-to-end via Django's test
+- [x] Phase 5: Enquiry Management verified end-to-end via Django's test
       client for all 3 staff roles — Platform Admin sees every enquiry
       (count cross-checked against the DB total, 200); College Admin/Staff
       see only their own college's enquiries (count cross-checked, 200);
@@ -519,7 +540,7 @@ Not yet implemented.
       clamp to 200 instead of erroring — this caught and fixed a real
       `EmptyPage` bug in the initial pagination template); all previously
       working public and dashboard routes re-verified with no regressions
-- [x] Search, Filter & Sorting verified end-to-end via Django's
+- [x] Phase 6: Search, Filter & Sorting verified end-to-end via Django's
       test client — search matched correctly on student name, email and
       college name substrings (results cross-checked against expected
       matches); college filter, course filter, gender filter, status

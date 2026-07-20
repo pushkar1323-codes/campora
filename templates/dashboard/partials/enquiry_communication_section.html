@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!-- {# Reusable "Communication" section for the Enquiry Detail page.
 See enquiry_documents_section.html for the reasoning — a future phase
 (Communication module) implements messaging by editing this file only. #} -->
@@ -8,5 +9,16 @@ See enquiry_documents_section.html for the reasoning — a future phase
             <i data-lucide="message-square"></i>
             <p class="mb-0">No messages have been exchanged on this enquiry yet.</p>
         </div>
+=======
+{# Communication section for the Enquiry Detail page (Phase 2A).
+   Replaces the Phase 1 placeholder now that the Communication System
+   exists. Expects `messages_list`, `message_form`, `reply_url` in
+   context -- see dashboard/views.py::enquiry_detail. #}
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="campora-heading mb-3">Communication</h5>
+        {% include 'communication/_message_list.html' with edit_url_name='dashboard:message_edit' delete_url_name='dashboard:message_delete' %}
+        {% include 'communication/_reply_form.html' %}
+>>>>>>> ea2d4fb (Add enterprise communication system with correction request workflow)
     </div>
 </div>
