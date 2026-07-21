@@ -1,0 +1,81 @@
+{% comment %}
+Internal Staff Notes section for the Enquiry Detail page (Phase 2B).
+STAFF-ONLY -- this partial is only ever included from
+templates/dashboard/enquiry_detail.html, a view decorated
+@role_required(SUPER_ADMIN, COLLEGE_ADMIN, COLLEGE_STAFF) that a Student
+can never reach at all (Feature 9: "Never expose Staff Notes to
+students"). Do NOT include this partial from any admissions-app
+(student-facing) template.
+
+Expects `enquiry`, `staff_notes`, `note_form`, `can_restore_notes` in
+context -- see dashboard/views.py::enquiry_detail.
+{% endcomment %}
+<div class="card mb-4 border-dark-subtle">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="campora-heading mb-0">Internal Staff Notes</h5>
+            <span class="badge bg-dark">
+                <i data-lucide="lock" style="width:12px;height:12px;"></i>
+                Private — Staff Only
+            </span>
+        </div>
+        <p class="text-muted small">
+            Visible only to College Staff, College Admin and Platform Admin. Students can never see this section.
+        </p>
+
+        {% if staff_notes %}
+        <div class="d-flex flex-column gap-2 mb-3">
+            {% for note in staff_notes %}
+            <div class="p-3 rounded-3 {% if note.is_deleted %}bg-danger-subtle{% else %}bg-warning-subtle{% endif %}">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div class="small text-muted">
+                        <strong>{{ note.author.get_full_name|default:note.author.username|default:"Unknown" }}</strong>
+                        &middot; {{ note.author_role }}
+                        &middot; {{ note.created_at|date:"M d, Y, g:i a" }}
+                        {% if note.is_edited %}&middot; edited{% endif %}
+                        {% if note.is_deleted %}&middot; <span class="text-danger">deleted{% if note.deleted_by %} by {{ note.deleted_by.get_full_name|default:note.deleted_by.username }}{% endif %}</span>{% endif %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if not note.is_deleted %}
+                        <a href="{% url 'dashboard:note_edit' note.pk %}" class="small">Edit</a>
+                        <form method="post" action="{% url 'dashboard:note_delete' note.pk %}" class="d-inline"
+                              onsubmit="return confirm('Delete this note?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-link btn-sm p-0 small text-danger">Delete</button>
+                        </form>
+                        {% elif can_restore_notes %}
+                        <form method="post" action="{% url 'dashboard:note_restore' note.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-link btn-sm p-0 small">Restore</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mt-1" style="white-space: pre-wrap;">{{ note.content }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="campora-empty-state">
+            <i data-lucide="sticky-note"></i>
+            <p class="mb-0">No internal notes have been added to this enquiry yet.</p>
+        </div>
+        {% endif %}
+
+        <hr>
+        <h6 class="fw-semibold mb-2">Add a Note</h6>
+        <form method="post" action="{% url 'dashboard:note_create' enquiry.pk %}">
+            {% csrf_token %}
+            <div class="input-group">
+                {{ note_form.content }}
+                <button type="submit" class="btn btn-dark">
+                    <i data-lucide="plus" style="width:16px;height:16px;"></i>
+                    Add Note
+                </button>
+            </div>
+            {% if note_form.content.errors %}
+            <div class="text-danger small mt-1" role="alert">{{ note_form.content.errors|join:", " }}</div>
+            {% endif %}
+        </form>
+    </div>
+</div>

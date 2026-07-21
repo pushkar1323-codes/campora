@@ -124,7 +124,12 @@
                         {% for enquiry in enquiries %}
                             <tr>
                                 <td>#{{ enquiry.pk }}</td>
-                                <td>{{ enquiry.full_name }}</td>
+                                <td>
+                                    {{ enquiry.full_name }}
+                                    {% if enquiry.unread_message_count %}
+                                    <span class="badge rounded-pill bg-danger" title="Unread messages">{{ enquiry.unread_message_count }}</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ enquiry.email }}</td>
                                 <td>{{ enquiry.mobile }}</td>
                                 {% if not college %}<td>{{ enquiry.college.name }}</td>{% endif %}

@@ -79,8 +79,11 @@
                                             {% else %}
                                             <a href="{% url 'admissions:enquiry_self_edit' row.enquiry.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
                                             {% endif %}
-                                            <a href="{% url 'admissions:enquiry_conversation' row.enquiry.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <a href="{% url 'admissions:enquiry_conversation' row.enquiry.pk %}" class="btn btn-sm btn-outline-primary position-relative">
                                                 Messages
+                                                {% if row.unread_count %}
+                                                <span class="badge rounded-pill bg-danger ms-1">{{ row.unread_count }}</span>
+                                                {% endif %}
                                             </a>
                                         </td>
                                     </tr>

@@ -1,0 +1,19 @@
+{% comment %}
+Reusable "Audit Information" section for the Enquiry Detail page
+(Phase 2B, Feature 5 -- placeholder for Phase 3's Audit Engine).
+See enquiry_documents_section.html for the reasoning -- a future phase
+implements immutable audit logging by editing this file only. Both
+Correction Requests and Staff Notes already record actor + timestamp on
+every state change (requested_by/resolved_by, author/deleted_by/
+restored_by), so a future Audit subscriber has real data to attach to
+without any change to admissions/communication/staff_notes.
+{% endcomment %}
+<div class="card">
+    <div class="card-body">
+        <h5 class="campora-heading mb-3">Audit Information</h5>
+        <div class="campora-empty-state">
+            <i data-lucide="shield-check"></i>
+            <p class="mb-0">No audit log has been recorded for this enquiry yet.</p>
+        </div>
+    </div>
+</div>

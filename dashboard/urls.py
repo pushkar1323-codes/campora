@@ -40,5 +40,9 @@ urlpatterns = [
     ),
     path("messages/<int:pk>/edit/", views.message_edit, name="message_edit"),
     path("messages/<int:pk>/delete/", views.message_delete, name="message_delete"),
+    path("enquiries/<int:pk>/notes/create/", views.note_create, name="note_create"),
+    path("notes/<int:pk>/edit/", views.note_edit, name="note_edit"),
+    path("notes/<int:pk>/delete/", views.note_delete, name="note_delete"),
+    path("notes/<int:pk>/restore/", views.note_restore, name="note_restore"),
     path("student/", views.student_dashboard, name="student"),
 ]

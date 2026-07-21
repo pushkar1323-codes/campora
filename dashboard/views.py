@@ -40,6 +40,10 @@ from communication.forms import MessageEditForm, MessageForm
 from communication.models import Message
 from communication.services import CommunicationService
 from courses.models import College, Course
+from staff_notes import permissions as note_permissions
+from staff_notes.forms import StaffNoteForm
+from staff_notes.models import StaffNote
+from staff_notes.services import StaffNoteService
 from .forms import SORT_FIELD_MAP, EnquiryFilterForm, EnquiryUpdateForm
 
 logger = logging.getLogger(__name__)
@@ -231,16 +235,20 @@ def student_dashboard(request):
     edit view, so the "Edit" link/lock-state shown here can never drift
     out of sync with what the edit view itself will allow.
     """
-    enquiries = (
+    enquiries = list(
         Enquiry.objects.filter(submitted_by=request.user)
         .select_related("course", "college")
         .prefetch_related("correction_requests")[:20]
+    )
+    unread_counts = CommunicationService.get_unread_counts_bulk(
+        Enquiry, [enquiry.pk for enquiry in enquiries], request.user
     )
     enquiry_rows = [
         {
             "enquiry": enquiry,
             "editable": can_student_edit_enquiry(enquiry, request.user),
             "active_correction": get_active_correction_request(enquiry),
+            "unread_count": unread_counts.get(enquiry.pk, 0),
         }
         for enquiry in enquiries
     ]
@@ -315,6 +323,17 @@ def enquiry_list(request):
     paginator = Paginator(enquiries, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
+    # Phase 2B, Feature 6/8: unread-message badge per row, computed in a
+    # single bulk query for just this page's rows (never per-row, which
+    # would be exactly the N+1 pattern Feature 8 warns against) --
+    # attached directly onto each Enquiry instance so the template can
+    # reference `enquiry.unread_message_count` with no extra context
+    # plumbing.
+    page_enquiry_ids = [enquiry.pk for enquiry in page_obj.object_list]
+    unread_counts = CommunicationService.get_unread_counts_bulk(Enquiry, page_enquiry_ids, request.user)
+    for enquiry in page_obj.object_list:
+        enquiry.unread_message_count = unread_counts.get(enquiry.pk, 0)
+
     # Querystring with 'page' stripped, reused by every pagination link so
     # changing pages never drops the active search/filter/sort.
     base_query = request.GET.copy()
@@ -387,6 +406,15 @@ def enquiry_detail(request, pk):
     CommunicationService.add_participant(enquiry, request.user, role_label=request.user.get_role_display())
     CommunicationService.mark_thread_read(enquiry, request.user)
 
+    # Phase 2B: Staff Notes are visibility-gated per role (Feature 4) --
+    # a plain College Staff sees only non-deleted notes; College
+    # Admin/Platform Admin (the only roles that can restore -- Feature 3)
+    # also see soft-deleted ones so there's something to restore. This
+    # mirrors staff_notes/permissions.py::can_restore_note exactly, so
+    # the visibility shown here can never drift from what the restore
+    # action itself would actually allow.
+    can_restore_notes = request.user.is_platform_admin or request.user.role == User.Role.COLLEGE_ADMIN
+
     context = {
         "enquiry": enquiry,
         "can_edit_personal": can_staff_edit_personal_fields(request.user),
@@ -396,6 +424,9 @@ def enquiry_detail(request, pk):
         "messages_list": CommunicationService.get_messages(enquiry),
         "message_form": MessageForm(),
         "reply_url": reverse("dashboard:enquiry_message_reply", args=[enquiry.pk]),
+        "staff_notes": StaffNoteService.get_notes(enquiry, include_deleted=can_restore_notes),
+        "note_form": StaffNoteForm(),
+        "can_restore_notes": can_restore_notes,
     }
     return render(request, "dashboard/enquiry_detail.html", context)
 
@@ -626,6 +657,7 @@ def request_correction(request, pk):
         return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
 
     messages.error(request, "Please correct the errors below and try again.")
+    can_restore_notes = request.user.is_platform_admin or request.user.role == User.Role.COLLEGE_ADMIN
     context = {
         "enquiry": enquiry,
         "can_edit_personal": can_staff_edit_personal_fields(request.user),
@@ -635,6 +667,9 @@ def request_correction(request, pk):
         "messages_list": CommunicationService.get_messages(enquiry),
         "message_form": MessageForm(),
         "reply_url": reverse("dashboard:enquiry_message_reply", args=[enquiry.pk]),
+        "staff_notes": StaffNoteService.get_notes(enquiry, include_deleted=can_restore_notes),
+        "note_form": StaffNoteForm(),
+        "can_restore_notes": can_restore_notes,
     }
     return render(request, "dashboard/enquiry_detail.html", context)
 
@@ -755,4 +790,123 @@ def message_delete(request, pk):
     if request.method == "POST":
         CommunicationService.delete_message(message, deleted_by=request.user)
         messages.success(request, "Message deleted.")
+    return redirect("dashboard:enquiry_detail", pk=owner.pk)
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def note_create(request, pk):
+    """Phase 2B, Feature 1/2 — staff records a private Internal Staff
+    Note on an enquiry. Same college-ownership scoping as every other
+    staff enquiry action -- this view never touches ContentType/
+    GenericForeignKey directly, only StaffNoteService.create_note(enquiry, ...).
+
+    Reachable only via @role_required(SUPER_ADMIN, COLLEGE_ADMIN,
+    COLLEGE_STAFF) -- Student is excluded by construction, satisfying
+    Feature 4/9's "Students must never access Internal Staff Notes"
+    at the URL level, not just by hiding a button.
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return error
+
+    queryset = Enquiry.objects.all() if college is None else Enquiry.objects.filter(college=college)
+    enquiry = get_object_or_404(queryset, pk=pk)
+
+    if request.method == "POST":
+        form = StaffNoteForm(request.POST)
+        if form.is_valid():
+            StaffNoteService.create_note(
+                enquiry, author=request.user, content=form.cleaned_data["content"],
+                author_role=request.user.get_role_display(),
+            )
+            messages.success(request, "Note added.")
+        else:
+            messages.error(request, "Note cannot be empty.")
+    return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
+
+
+def _get_scoped_note_for_staff(request, pk):
+    """Shared lookup for note_edit/note_delete/note_restore: college-scoped
+    via the note's own enquiry (walked generically -- this view doesn't
+    know or care that a note's owner happens to be an Enquiry; matches
+    the same pattern dashboard/views.py already uses for messages, see
+    _get_editable_message_for_staff). Returns (note, error_response).
+    """
+    college, error = _staff_scope(request)
+    if error:
+        return None, error
+    note = get_object_or_404(StaffNote.objects.select_related("content_type", "author"), pk=pk)
+    owner = note.content_object
+    if college is not None and getattr(owner, "college_id", None) != college.id:
+        raise Http404("No note matches the given query.")
+    return note, None
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def note_edit(request, pk):
+    """Phase 2B, Feature 3/4 — edit a note. Permission delegated entirely
+    to staff_notes.permissions.can_edit_note (generic: author-only for
+    College Staff; any note for College Admin/Platform Admin) -- college
+    scoping above only establishes that this staff member may be looking
+    at this enquiry's notes at all.
+    """
+    note, error = _get_scoped_note_for_staff(request, pk)
+    if error:
+        return error
+    if not note_permissions.can_edit_note(request.user, note):
+        raise Http404("No note matches the given query.")
+
+    owner = note.content_object
+    cancel_url = reverse("dashboard:enquiry_detail", args=[owner.pk])
+
+    if request.method == "POST":
+        form = StaffNoteForm(request.POST, instance=note)
+        if form.is_valid():
+            StaffNoteService.edit_note(note, form.cleaned_data["content"], edited_by=request.user)
+            messages.success(request, "Note updated.")
+            return redirect(cancel_url)
+    else:
+        form = StaffNoteForm(instance=note)
+
+    return render(request, "staff_notes/note_edit.html", {"form": form, "cancel_url": cancel_url})
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def note_delete(request, pk):
+    """Phase 2B, Feature 3/4 — soft-delete a note. Same permission
+    delegation as note_edit above (author-only for Staff; any note for
+    Admin/Platform Admin)."""
+    note, error = _get_scoped_note_for_staff(request, pk)
+    if error:
+        return error
+    if not note_permissions.can_delete_note(request.user, note):
+        raise Http404("No note matches the given query.")
+
+    owner = note.content_object
+    if request.method == "POST":
+        StaffNoteService.delete_note(note, deleted_by=request.user)
+        messages.success(request, "Note deleted.")
+    return redirect("dashboard:enquiry_detail", pk=owner.pk)
+
+
+@role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
+def note_restore(request, pk):
+    """Phase 2B, Feature 3/4 — "Restore Note (Administrator only)":
+    explicitly not available to plain College Staff, even for their own
+    note -- staff_notes.permissions.can_restore_note enforces that,
+    identically to the visibility rule already used to decide whether a
+    deleted note is even shown (see dashboard/views.py::enquiry_detail's
+    `can_restore_notes`), so the button a College Staff never sees also
+    can't be reached by a direct POST.
+    """
+    note, error = _get_scoped_note_for_staff(request, pk)
+    if error:
+        return error
+    if not note_permissions.can_restore_note(request.user, note):
+        raise Http404("No note matches the given query.")
+
+    owner = note.content_object
+    if request.method == "POST":
+        StaffNoteService.restore_note(note, restored_by=request.user)
+        messages.success(request, "Note restored.")
     return redirect("dashboard:enquiry_detail", pk=owner.pk)

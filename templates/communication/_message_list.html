@@ -1,7 +1,9 @@
 {% comment %}
-Reusable message-list display for the Communication System (Phase 2A).
-Included identically from both the staff (dashboard) and student
-(admissions) conversation views — no duplicated markup.
+Reusable message-list display for the Communication System (Phase 2A,
+styling refined in Phase 2B Feature 6: distinct colors per message type/
+sender role, unread indicator for inbound messages). Included identically
+from both the staff (dashboard) and student (admissions) conversation
+views — no duplicated markup.
 
 Expected context:
   messages_list  -- queryset/list of communication.Message (chronological)
@@ -11,11 +13,22 @@ Expected context:
 <div class="d-flex flex-column gap-3">
     {% for message in messages_list %}
     <div class="d-flex {% if message.sender_id == request.user.id %}justify-content-end{% endif %}">
-        <div class="p-3 rounded-3 {% if message.is_system_generated %}bg-secondary-subtle text-secondary small w-100 text-center{% elif message.sender_id == request.user.id %}bg-primary-subtle{% else %}bg-body-secondary{% endif %}" style="max-width: 75%;">
-            {% if not message.is_system_generated %}
+        <div class="p-3 rounded-3
+            {% if message.message_type == 'CORRECTION_REQUEST' %}bg-warning-subtle text-dark small w-100 text-center
+            {% elif message.is_system_generated %}bg-secondary-subtle text-secondary small w-100 text-center
+            {% elif message.sender_id == request.user.id %}bg-primary-subtle
+            {% else %}bg-body-secondary{% endif %}" style="max-width: 75%;">
+            {% if message.message_type == 'CORRECTION_REQUEST' %}
+            <div class="small fw-semibold mb-1">
+                <i data-lucide="alert-triangle" style="width:14px;height:14px;"></i>
+                Correction Requested
+            </div>
+            {% elif not message.is_system_generated %}
             <div class="small text-muted mb-1">
                 <strong>{{ message.sender.get_full_name|default:message.sender.username|default:"Unknown" }}</strong>
-                <span class="text-muted">&middot; {{ message.sender_role }}</span>
+                <span class="badge {% if message.sender_role == 'Student' %}bg-info-subtle text-info{% else %}bg-success-subtle text-success{% endif %}">
+                    {{ message.sender_role }}
+                </span>
             </div>
             {% endif %}
             <div style="white-space: pre-wrap;">{{ message.content }}</div>
@@ -24,6 +37,8 @@ Expected context:
                 {% if message.is_edited %}&middot; edited{% endif %}
                 {% if not message.is_system_generated and message.sender_id == request.user.id %}
                     &middot; {% if message.is_read %}Read{% else %}Sent{% endif %}
+                {% elif message.sender_id != request.user.id and not message.is_read %}
+                    &middot; <span class="badge bg-primary">Unread</span>
                 {% endif %}
             </div>
             {% if not message.is_system_generated and message.sender_id == request.user.id %}

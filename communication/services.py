@@ -24,7 +24,7 @@ the call sites shown in this phase's diagram:
     CorrectionRequest -> CommunicationService.post_system_message() -> (future) Event Publisher
 """
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from .models import Message, MessageThread, ThreadParticipant
@@ -208,6 +208,31 @@ class CommunicationService:
         return thread.messages.filter(is_deleted=False, is_read=False).filter(
             Q(sender__isnull=True) | ~Q(sender=user)
         ).count()
+
+    @staticmethod
+    def get_unread_counts_bulk(model_class, object_ids, user):
+        """Phase 2B, Feature 6/8: the list-view counterpart of
+        get_unread_count above. A paginated list of enquiries (or any
+        other object type) showing an "unread" badge per row must NOT
+        call get_unread_count() once per row -- that's exactly the N+1
+        pattern Feature 8 asks to avoid. This does it in a single query
+        for the whole page instead, returning {object_id: count}
+        (objects with no unread messages, or no thread at all, are simply
+        absent from the dict -- callers should default missing keys to 0).
+        """
+        if not object_ids:
+            return {}
+        content_type = ContentType.objects.get_for_model(model_class)
+        rows = (
+            Message.objects.filter(
+                thread__content_type=content_type, thread__object_id__in=object_ids,
+                is_deleted=False, is_read=False,
+            )
+            .filter(Q(sender__isnull=True) | ~Q(sender=user))
+            .values("thread__object_id")
+            .annotate(count=Count("id"))
+        )
+        return {row["thread__object_id"]: row["count"] for row in rows}
 
     # -- Reading messages -----------------------------------------------------
 

@@ -164,6 +164,18 @@ Implemented so far:
   read-status tracking, and automatic system messages (e.g. a Correction
   Request being opened posts one automatically).
 
+- **Internal Staff Notes** (Phase 2B of the same roadmap): a private,
+  staff-only notes module, deliberately separate from the Communication
+  System (its own `staff_notes` app, own `StaffNoteService`) though built
+  on the same generic-`ContentType` pattern so it's equally reusable by
+  future modules. Strict role matrix: Students can never view or create
+  notes (the entire page they'd live on is unreachable to a Student, not
+  just visually hidden); College Staff create/edit/soft-delete only their
+  own notes; College Admin has full access plus the sole ability to
+  restore a deleted note; Platform Admin has full unrestricted access.
+  Unread-message badges now also appear on the enquiry list and student
+  dashboard (computed in one bulk query per page, not per row).
+
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
 CSV/Excel export, AWS deployment.
 
@@ -370,6 +382,9 @@ college_admission/
 ├── communication/     # Reusable Communication System (MessageThread,
 │                     # ThreadParticipant, Message) -- generic, not tied
 │                     # to Enquiry; see CommunicationService
+├── staff_notes/       # Internal Staff Notes (private, staff-only) --
+│                     # separate module from communication, same generic
+│                     # ContentType pattern; see StaffNoteService
 ├── core/              # Public website (Home, About, Colleges, Courses,
 │                     # Contact) + seed_data command
 ├── config/            # Django project settings, root URLs, WSGI/ASGI
