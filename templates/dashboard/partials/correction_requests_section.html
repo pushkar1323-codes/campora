@@ -1,18 +1,11 @@
-<<<<<<< HEAD
-<!-- {# Reusable "Correction Requests" section for the Enquiry Detail page
+{% comment %}
+Reusable "Correction Requests" section for the Enquiry Detail page
 (Phase 1, Feature 6). Expects `enquiry`, `correction_requests`,
 `correction_form` in context — see dashboard/views.py::enquiry_detail /
 request_correction. Kept as its own include (rather than inlined in
 enquiry_detail.html) so it can be reused anywhere else an enquiry's
-correction history needs to be shown, without duplicating markup. #} -->
-=======
-{# Reusable "Correction Requests" section for the Enquiry Detail page
-   (Phase 1, Feature 6). Expects `enquiry`, `correction_requests`,
-   `correction_form` in context — see dashboard/views.py::enquiry_detail /
-   request_correction. Kept as its own include (rather than inlined in
-   enquiry_detail.html) so it can be reused anywhere else an enquiry's
-   correction history needs to be shown, without duplicating markup. #}
->>>>>>> ea2d4fb (Add enterprise communication system with correction request workflow)
+correction history needs to be shown, without duplicating markup.
+{% endcomment %}
 <div class="card mb-4">
     <div class="card-body">
         <h5 class="campora-heading mb-3">Correction Requests</h5>

@@ -40,6 +40,19 @@ class EnquiryEditPersonalFieldLockoutTests(TestCase):
         self.assertNotContains(response, 'name="mobile"')
         self.assertNotContains(response, 'name="dob"')
 
+    def test_staff_edit_form_excludes_academic_fields(self):
+        """Bugfix regression: qualification/percentage were originally
+        rendered in an always-visible "Academic Details" section outside
+        the personal-field lockout, so College Staff could edit them
+        despite Feature 1. They're self-reported student data, same
+        ownership boundary as the identity fields above."""
+        self.client.login(username="staff1", password="pass12345")
+        response = self.client.get(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]))
+        self.assertNotContains(response, 'name="qualification"')
+        self.assertNotContains(response, 'name="percentage"')
+        # admission_year is intentionally still staff-editable
+        self.assertContains(response, 'name="admission_year"')
+
     def test_staff_post_cannot_change_personal_fields(self):
         self.client.login(username="staff1", password="pass12345")
         self.client.post(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]), {
@@ -51,21 +64,35 @@ class EnquiryEditPersonalFieldLockoutTests(TestCase):
         self.enquiry.refresh_from_db()
         self.assertEqual(self.enquiry.full_name, "Student One")
 
+    def test_staff_post_cannot_change_academic_fields(self):
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]), {
+            "college": self.college.pk, "course": self.course.pk, "status": Enquiry.Status.NEW,
+            "qualification": "HACKED QUALIFICATION", "percentage": "1.00", "admission_year": "2026",
+        })
+        self.enquiry.refresh_from_db()
+        self.assertEqual(self.enquiry.qualification, "Class 12")
+        self.assertEqual(float(self.enquiry.percentage), 80.0)
+
     def test_platform_admin_edit_form_includes_personal_fields(self):
         self.client.login(username="padmin", password="pass12345")
         response = self.client.get(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]))
         self.assertContains(response, 'name="full_name"')
+        self.assertContains(response, 'name="qualification"')
+        self.assertContains(response, 'name="percentage"')
 
     def test_platform_admin_can_change_personal_fields(self):
         self.client.login(username="padmin", password="pass12345")
         self.client.post(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]), {
             "college": self.college.pk, "course": self.course.pk, "status": Enquiry.Status.NEW,
-            "qualification": "Class 12", "percentage": "80.00", "admission_year": "2026",
+            "qualification": "Class 12 (Updated)", "percentage": "91.00", "admission_year": "2026",
             "full_name": "Corrected Name", "email": "corrected@example.com", "mobile": "1111111111",
             "address": "Corrected addr", "dob": "1999-01-01", "gender": "M", "father_name": "Corrected Father",
         })
         self.enquiry.refresh_from_db()
         self.assertEqual(self.enquiry.full_name, "Corrected Name")
+        self.assertEqual(self.enquiry.qualification, "Class 12 (Updated)")
+        self.assertEqual(float(self.enquiry.percentage), 91.0)
 
 
 class CorrectionRequestWorkflowTests(TestCase):

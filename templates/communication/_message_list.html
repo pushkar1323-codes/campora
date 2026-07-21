@@ -1,12 +1,13 @@
-{# Reusable message-list display for the Communication System (Phase 2A).
-   Included identically from both the staff (dashboard) and student
-   (admissions) conversation views — no duplicated markup.
+{% comment %}
+Reusable message-list display for the Communication System (Phase 2A).
+Included identically from both the staff (dashboard) and student
+(admissions) conversation views — no duplicated markup.
 
-   Expected context:
-     messages_list  -- queryset/list of communication.Message (chronological)
-     edit_url_name   -- e.g. "dashboard:message_edit" / "admissions:message_edit"
-     delete_url_name -- e.g. "dashboard:message_delete" / "admissions:message_delete"
-#}
+Expected context:
+  messages_list  -- queryset/list of communication.Message (chronological)
+  edit_url_name   -- e.g. "dashboard:message_edit" / "admissions:message_edit"
+  delete_url_name -- e.g. "dashboard:message_delete" / "admissions:message_delete"
+{% endcomment %}
 <div class="d-flex flex-column gap-3">
     {% for message in messages_list %}
     <div class="d-flex {% if message.sender_id == request.user.id %}justify-content-end{% endif %}">

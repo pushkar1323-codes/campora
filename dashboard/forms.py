@@ -194,11 +194,28 @@ class EnquiryUpdateForm(forms.ModelForm):
             "staff_notes": forms.Textarea(attrs={"class": _TEXT_INPUT, "rows": 3}),
         }
 
-    # Phase 1, Feature 1/3/7: personal-information fields, as opposed to
+    # Phase 1, Feature 1/3/7: student-owned fields, as opposed to
     # admission-workflow fields. Never editable by College Admin/College
     # Staff — see `can_edit_personal` below and
     # admissions/services.py::can_staff_edit_personal_fields.
-    PERSONAL_FIELDS = ["full_name", "father_name", "email", "mobile", "address", "dob", "gender"]
+    #
+    # BUGFIX (post-Phase-2A): `qualification`/`percentage` were originally
+    # left out of this list and rendered in their own always-visible
+    # "Academic Details" section in enquiry_edit.html, so College
+    # Admin/Staff could still edit them despite Feature 1's "no personal
+    # profile information should be editable from an enquiry" and
+    # Feature 4's staff-editable field list never actually including
+    # them. They're self-reported academic data the student enters, same
+    # ownership boundary as the identity fields below — corrected the
+    # same way (Request Correction), not edited directly by staff.
+    # `admission_year` stays out of this list: unlike qualification/
+    # percentage it's treated as an administrative attribute of the
+    # enquiry itself (which admission cycle it belongs to), not
+    # self-reported personal/academic data.
+    STUDENT_OWNED_FIELDS = [
+        "full_name", "father_name", "email", "mobile", "address", "dob", "gender",
+        "qualification", "percentage",
+    ]
 
     def __init__(self, *args, staff_college=None, can_edit_personal=False, **kwargs):
         """`staff_college`: pass the College of a logged-in College
@@ -222,18 +239,19 @@ class EnquiryUpdateForm(forms.ModelForm):
         `can_edit_personal` (Phase 1): pass
         `admissions.services.can_staff_edit_personal_fields(request.user)`
         from the view. When False (College Admin, College Staff), every
-        field in PERSONAL_FIELDS is removed from the form entirely — not
-        just disabled — so there is no input to render, submit, or tamper
-        with for student personal information. Staff use the Request
-        Correction workflow instead (see dashboard/views.py::request_correction).
-        Only a Platform Admin (the only role with this permission, per
-        Feature 7) sees and can submit these fields — also the only way to
-        correct an anonymous/guest enquiry's personal data, since a guest
-        has no account for a correction request to reach.
+        field in STUDENT_OWNED_FIELDS is removed from the form entirely —
+        not just disabled — so there is no input to render, submit, or
+        tamper with for student personal/academic information. Staff use
+        the Request Correction workflow instead (see
+        dashboard/views.py::request_correction). Only a Platform Admin
+        (the only role with this permission, per Feature 7) sees and can
+        submit these fields — also the only way to correct an
+        anonymous/guest enquiry's data, since a guest has no account for
+        a correction request to reach.
         """
         super().__init__(*args, **kwargs)
         if not can_edit_personal:
-            for field_name in self.PERSONAL_FIELDS:
+            for field_name in self.STUDENT_OWNED_FIELDS:
                 del self.fields[field_name]
         if staff_college is not None:
             self.fields["college"].queryset = College.objects.filter(
