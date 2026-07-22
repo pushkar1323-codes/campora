@@ -29,7 +29,7 @@ context -- see dashboard/views.py::enquiry_detail.
             <div class="p-3 rounded-3 {% if note.is_deleted %}bg-danger-subtle{% else %}bg-warning-subtle{% endif %}">
                 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                     <div class="small text-muted">
-                        <strong>{{ note.author.get_full_name|default:note.author.username|default:"Unknown" }}</strong>
+                        <strong>{% if note.author %}{{ note.author.get_full_name|default:note.author.username }}{% else %}Unknown{% endif %}</strong>
                         &middot; {{ note.author_role }}
                         &middot; {{ note.created_at|date:"M d, Y, g:i a" }}
                         {% if note.is_edited %}&middot; edited{% endif %}

@@ -479,3 +479,101 @@ class TimelineStaffEventTests(TestCase):
         self.client.login(username="staff1", password="pass12345")
         response = self.client.get(reverse("dashboard:enquiry_detail", args=[self.enquiry.pk]))
         self.assertContains(response, "Test Timeline Entry")
+
+
+class AuditLogIntegrationTests(TestCase):
+    """Phase 3B: automatic Audit Log entries from real staff actions, and
+    Feature 9's role-gated visibility on the Enquiry Detail page."""
+
+    def setUp(self):
+        self.college, self.course = _make_college_and_course()
+        self.staff = User.objects.create_user(username="staff1", password="pass12345", role=User.Role.COLLEGE_STAFF, is_staff=True)
+        StaffProfile.objects.create(user=self.staff, college=self.college, designation="Staff")
+        self.college_admin = User.objects.create_user(username="cadmin", password="pass12345", role=User.Role.COLLEGE_ADMIN, is_staff=True)
+        StaffProfile.objects.create(user=self.college_admin, college=self.college, designation="Admin")
+        self.platform_admin = User.objects.create_user(
+            username="padmin", password="pass12345", role=User.Role.SUPER_ADMIN, is_staff=True, is_superuser=True,
+        )
+        self.enquiry = Enquiry.objects.create(
+            full_name="Student One", father_name="F", email="s1@example.com", mobile="9999999999",
+            address="Addr", dob="2000-01-01", gender="M", course=self.course,
+            qualification="Class 12", percentage=80, admission_year=2026, status=Enquiry.Status.NEW,
+        )
+
+    def test_status_change_logs_audit_entry_with_previous_and_new_values(self):
+        from audit.services import AuditService
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]), {
+            "college": self.college.pk, "course": self.course.pk, "status": Enquiry.Status.CONTACTED,
+            "admission_year": "2026",
+        })
+        entry = AuditService.get_logs_for_object(self.enquiry).filter(action="ENQUIRY_STATUS_CHANGED").first()
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.previous_values, {"status": "NEW"})
+        self.assertEqual(entry.new_values, {"status": "CONTACTED"})
+        self.assertEqual(entry.college, self.college)
+
+    def test_rejected_status_logs_warning_severity(self):
+        from audit.services import AuditService
+        from audit.models import AuditLog
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]), {
+            "college": self.college.pk, "course": self.course.pk, "status": Enquiry.Status.REJECTED,
+            "admission_year": "2026",
+        })
+        entry = AuditService.get_logs_for_object(self.enquiry).filter(action="ENQUIRY_STATUS_CHANGED").first()
+        self.assertEqual(entry.severity, AuditLog.Severity.WARNING)
+
+    def test_college_approve_reject_suspend_log_audit_entries(self):
+        from audit.services import AuditService
+        pending_college = College.objects.create(name="Pending College", state="S", city="C", status=College.Status.PENDING)
+        self.client.login(username="padmin", password="pass12345")
+        self.client.post(reverse("dashboard:approve_college", args=[pending_college.pk]))
+        self.assertTrue(AuditService.get_logs_for_object(pending_college).filter(action="COLLEGE_APPROVED").exists())
+
+        self.client.post(reverse("dashboard:suspend_college", args=[pending_college.pk]))
+        self.assertTrue(AuditService.get_logs_for_object(pending_college).filter(action="COLLEGE_SUSPENDED").exists())
+
+    def test_staff_creation_logs_audit_entry(self):
+        from audit.services import AuditService
+        self.client.login(username="cadmin", password="pass12345")
+        self.client.post(reverse("dashboard:manage_staff"), {
+            "username": "newstaff", "password1": "SuperSecret123!", "password2": "SuperSecret123!",
+            "first_name": "New", "last_name": "Staff", "email": "newstaff@example.com",
+            "designation": "Counsellor", "phone": "9998887777",
+        })
+        new_staff = User.objects.get(username="newstaff")
+        self.assertTrue(AuditService.get_logs_for_object(new_staff).filter(action="STAFF_CREATED").exists())
+
+    def test_correction_requested_and_resolved_log_audit_entries(self):
+        from audit.services import AuditService
+        from admissions.services import create_correction_request
+
+        correction = create_correction_request(self.enquiry, requested_by=self.staff, reason="Fix phone")
+        self.assertTrue(AuditService.get_logs_for_object(self.enquiry).filter(action="CORRECTION_REQUESTED").exists())
+
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:resolve_correction", args=[self.enquiry.pk, correction.pk]))
+        self.assertTrue(AuditService.get_logs_for_object(self.enquiry).filter(action="CORRECTION_RESOLVED").exists())
+
+    def test_college_staff_never_sees_audit_content_on_enquiry_detail(self):
+        from audit.services import AuditService
+        AuditService.log_for_object(self.enquiry, action="TEST_AUDIT_ENTRY", category="System")
+        self.client.login(username="staff1", password="pass12345")
+        response = self.client.get(reverse("dashboard:enquiry_detail", args=[self.enquiry.pk]))
+        self.assertNotContains(response, "TEST_AUDIT_ENTRY")
+        self.assertContains(response, "Restricted to Platform Admin and College Admin")
+
+    def test_college_admin_sees_audit_content_on_enquiry_detail(self):
+        from audit.services import AuditService
+        AuditService.log_for_object(self.enquiry, action="TEST_AUDIT_ENTRY", category="System")
+        self.client.login(username="cadmin", password="pass12345")
+        response = self.client.get(reverse("dashboard:enquiry_detail", args=[self.enquiry.pk]))
+        self.assertContains(response, "TEST_AUDIT_ENTRY")
+
+    def test_platform_admin_sees_audit_content_on_enquiry_detail(self):
+        from audit.services import AuditService
+        AuditService.log_for_object(self.enquiry, action="TEST_AUDIT_ENTRY", category="System")
+        self.client.login(username="padmin", password="pass12345")
+        response = self.client.get(reverse("dashboard:enquiry_detail", args=[self.enquiry.pk]))
+        self.assertContains(response, "TEST_AUDIT_ENTRY")

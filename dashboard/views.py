@@ -46,6 +46,9 @@ from staff_notes.models import StaffNote
 from staff_notes.services import StaffNoteService
 from timeline.models import TimelineEntry
 from timeline.services import TimelineService
+from audit.models import AuditLog
+from audit.permissions import can_view_audit_logs
+from audit.services import AuditService
 from .forms import SORT_FIELD_MAP, EnquiryFilterForm, EnquiryUpdateForm
 
 logger = logging.getLogger(__name__)
@@ -135,9 +138,17 @@ def platform_dashboard(request):
 def approve_college(request, pk):
     if request.method == "POST":
         college = get_object_or_404(College, pk=pk)
+        previous_status = college.status
         college.status = College.Status.APPROVED
         college.save(update_fields=["status", "updated_at"])
         logger.info("College approved by %s: %s", request.user.username, college.name)
+        AuditService.log_for_object(
+            college, action="COLLEGE_APPROVED", category="College Management",
+            severity=AuditLog.Severity.INFO, actor=request.user, college=college,
+            previous_values={"status": previous_status}, new_values={"status": college.status},
+            snapshot_data={"name": college.name, "city": college.city, "state": college.state},
+            request=request,
+        )
         messages.success(request, f"{college.name} has been approved.")
     return redirect("dashboard:platform")
 
@@ -146,9 +157,17 @@ def approve_college(request, pk):
 def reject_college(request, pk):
     if request.method == "POST":
         college = get_object_or_404(College, pk=pk)
+        previous_status = college.status
         college.status = College.Status.REJECTED
         college.save(update_fields=["status", "updated_at"])
         logger.info("College rejected by %s: %s", request.user.username, college.name)
+        AuditService.log_for_object(
+            college, action="COLLEGE_REJECTED", category="College Management",
+            severity=AuditLog.Severity.WARNING, actor=request.user, college=college,
+            previous_values={"status": previous_status}, new_values={"status": college.status},
+            snapshot_data={"name": college.name, "city": college.city, "state": college.state},
+            request=request,
+        )
         messages.success(request, f"{college.name} has been rejected.")
     return redirect("dashboard:platform")
 
@@ -157,9 +176,17 @@ def reject_college(request, pk):
 def suspend_college(request, pk):
     if request.method == "POST":
         college = get_object_or_404(College, pk=pk)
+        previous_status = college.status
         college.status = College.Status.SUSPENDED
         college.save(update_fields=["status", "updated_at"])
         logger.info("College suspended by %s: %s", request.user.username, college.name)
+        AuditService.log_for_object(
+            college, action="COLLEGE_SUSPENDED", category="College Management",
+            severity=AuditLog.Severity.WARNING, actor=request.user, college=college,
+            previous_values={"status": previous_status}, new_values={"status": college.status},
+            snapshot_data={"name": college.name, "city": college.city, "state": college.state},
+            request=request,
+        )
         messages.warning(request, f"{college.name} has been suspended.")
     return redirect("dashboard:platform")
 
@@ -216,7 +243,14 @@ def manage_staff(request):
     if request.method == "POST":
         form = StaffCreationForm(request.POST)
         if form.is_valid():
-            form.save(role=User.Role.COLLEGE_STAFF, college=college)
+            new_staff = form.save(role=User.Role.COLLEGE_STAFF, college=college)
+            AuditService.log_for_object(
+                new_staff, action="STAFF_CREATED", category="Staff Management",
+                severity=AuditLog.Severity.INFO, actor=request.user, college=college,
+                object_display_name=new_staff.get_full_name() or new_staff.username,
+                new_values={"role": User.Role.COLLEGE_STAFF, "college": college.name},
+                request=request,
+            )
             messages.success(request, "Staff member added successfully.")
             return redirect("dashboard:manage_staff")
     else:
@@ -417,6 +451,15 @@ def enquiry_detail(request, pk):
     # action itself would actually allow.
     can_restore_notes = request.user.is_platform_admin or request.user.role == User.Role.COLLEGE_ADMIN
 
+    # Phase 3B, Feature 9: Audit Logs are restricted to Platform Admin
+    # and College Admin -- notably NOT College Staff (unlike every other
+    # section on this page). `can_view_audit` gates both whether we even
+    # query the logs and whether the template renders their content, so
+    # a plain College Staff member never receives audit data in the
+    # response at all, not just a hidden section.
+    can_view_audit = can_view_audit_logs(request.user)
+    audit_logs = AuditService.get_logs_for_object(enquiry) if can_view_audit else AuditLog.objects.none()
+
     context = {
         "enquiry": enquiry,
         "can_edit_personal": can_staff_edit_personal_fields(request.user),
@@ -430,6 +473,8 @@ def enquiry_detail(request, pk):
         "note_form": StaffNoteForm(),
         "can_restore_notes": can_restore_notes,
         "timeline_entries": TimelineService.get_timeline(enquiry),
+        "can_view_audit": can_view_audit,
+        "audit_logs": audit_logs,
     }
     return render(request, "dashboard/enquiry_detail.html", context)
 
@@ -476,6 +521,14 @@ def enquiry_edit(request, pk):
             form.save()
             if enquiry.status != previous_status:
                 _log_status_change_timeline_event(enquiry, previous_status, request.user)
+                AuditService.log_for_object(
+                    enquiry, action="ENQUIRY_STATUS_CHANGED", category="Admission",
+                    severity=AuditLog.Severity.WARNING if enquiry.status == Enquiry.Status.REJECTED else AuditLog.Severity.INFO,
+                    actor=request.user, college=enquiry.college,
+                    previous_values={"status": previous_status}, new_values={"status": enquiry.status},
+                    snapshot_data={"full_name": enquiry.full_name, "course": enquiry.course.course_name},
+                    request=request,
+                )
             messages.success(request, f"Enquiry #{enquiry.pk} ({enquiry.full_name}) updated successfully.")
             return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
         messages.error(request, "Please correct the errors below and try again.")
@@ -698,12 +751,15 @@ def request_correction(request, pk):
             requested_by=request.user,
             reason=form.cleaned_data["reason"],
             message=form.cleaned_data.get("message", ""),
+            request=request,
         )
         messages.success(request, f"Correction requested for Enquiry #{enquiry.pk}.")
         return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
 
     messages.error(request, "Please correct the errors below and try again.")
     can_restore_notes = request.user.is_platform_admin or request.user.role == User.Role.COLLEGE_ADMIN
+    can_view_audit = can_view_audit_logs(request.user)
+    audit_logs = AuditService.get_logs_for_object(enquiry) if can_view_audit else AuditLog.objects.none()
     context = {
         "enquiry": enquiry,
         "can_edit_personal": can_staff_edit_personal_fields(request.user),
@@ -717,6 +773,8 @@ def request_correction(request, pk):
         "note_form": StaffNoteForm(),
         "can_restore_notes": can_restore_notes,
         "timeline_entries": TimelineService.get_timeline(enquiry),
+        "can_view_audit": can_view_audit,
+        "audit_logs": audit_logs,
     }
     return render(request, "dashboard/enquiry_detail.html", context)
 
@@ -738,7 +796,7 @@ def resolve_correction(request, pk, correction_pk):
     correction = get_object_or_404(enquiry.correction_requests, pk=correction_pk)
 
     if request.method == "POST":
-        resolve_correction_request(correction, resolved_by=request.user)
+        resolve_correction_request(correction, resolved_by=request.user, request=request)
         messages.success(request, f"Correction request for Enquiry #{enquiry.pk} marked resolved.")
     return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
 

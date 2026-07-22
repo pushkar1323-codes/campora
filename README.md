@@ -187,6 +187,21 @@ Implemented so far:
   free-text, not a fixed enum, so future modules can introduce their own
   without a migration.
 
+- **Enterprise Audit Logging Engine** (Phase 3B of the same roadmap): a
+  separate, immutable administrative record (security, accountability,
+  compliance) -- distinct from Timeline, which is user-facing history.
+  Immutability enforced at three layers (instance `save()`/`delete()`,
+  and queryset-level `.update()`/`.delete()`). No `GenericForeignKey` to
+  the audited object -- target model/ID/display name are captured as
+  plain values at logging time, plus optional `snapshot_data`, so a log
+  entry survives even if its subject is later deleted. Automatic entries
+  for login/logout (via Django's own auth signals, not a custom event
+  system), failed logins, college approve/reject/suspend, staff
+  creation, enquiry status changes, and correction request/resolution.
+  Restricted to Platform Admin and (their own college's) College Admin
+  only -- notably *not* College Staff, and never Students. Not
+  registered in the Campora Admin Panel this phase (by explicit design).
+
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
 CSV/Excel export, AWS deployment.
 
@@ -399,6 +414,9 @@ college_admission/
 ├── timeline/           # Enterprise Timeline Engine -- user-facing
 │                     # chronological history (not an audit log), same
 │                     # generic ContentType pattern; see TimelineService
+├── audit/              # Enterprise Audit Logging Engine -- immutable
+│                     # administrative records (security/compliance),
+│                     # NOT generic ContentType-based; see AuditService
 ├── core/              # Public website (Home, About, Colleges, Courses,
 │                     # Contact) + seed_data command
 ├── config/            # Django project settings, root URLs, WSGI/ASGI

@@ -19,9 +19,9 @@ correction history needs to be shown, without duplicating markup.
                         <div class="fw-semibold">{{ correction.reason }}</div>
                         {% if correction.message %}<div class="text-muted small">{{ correction.message }}</div>{% endif %}
                         <div class="text-muted small mt-1">
-                            Requested by {{ correction.requested_by.get_full_name|default:correction.requested_by.username }}
+                            Requested by {% if correction.requested_by %}{{ correction.requested_by.get_full_name|default:correction.requested_by.username }}{% else %}Unknown{% endif %}
                             on {{ correction.created_at|date:"M d, Y, g:i a" }}
-                            {% if correction.resolved_at %} &middot; Resolved by {{ correction.resolved_by.get_full_name|default:correction.resolved_by.username }} on {{ correction.resolved_at|date:"M d, Y, g:i a" }}{% endif %}
+                            {% if correction.resolved_at %} &middot; Resolved by {% if correction.resolved_by %}{{ correction.resolved_by.get_full_name|default:correction.resolved_by.username }}{% else %}Unknown{% endif %} on {{ correction.resolved_at|date:"M d, Y, g:i a" }}{% endif %}
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">

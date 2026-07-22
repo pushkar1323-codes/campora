@@ -35,6 +35,8 @@ from communication.models import Message
 from communication.services import CommunicationService
 from timeline.models import TimelineEntry
 from timeline.services import TimelineService
+from audit.models import AuditLog
+from audit.services import AuditService
 
 from .models import CorrectionRequest, Enquiry
 
@@ -110,7 +112,7 @@ def can_staff_edit_personal_fields(user):
     return bool(getattr(user, "is_authenticated", False) and user.is_platform_admin)
 
 
-def create_correction_request(enquiry, requested_by, reason, message=""):
+def create_correction_request(enquiry, requested_by, reason, message="", request=None):
     """Feature 6: staff asks the student to fix something, instead of
     editing the student's information directly.
 
@@ -127,6 +129,10 @@ def create_correction_request(enquiry, requested_by, reason, message=""):
     A future Event Publisher can be added by having post_system_message()
     itself additionally publish an event — nothing here needs to change
     for that.
+
+    `request` is optional and only used to capture IP/user agent on the
+    resulting Audit Log entry (Phase 3B) — every other caller (e.g.
+    tests) can omit it.
     """
     correction = CorrectionRequest.objects.create(
         enquiry=enquiry, requested_by=requested_by, reason=reason, message=message,
@@ -153,6 +159,13 @@ def create_correction_request(enquiry, requested_by, reason, message=""):
         actor=requested_by, icon="alert-triangle",
         metadata={"correction_request_id": correction.pk},
     )
+    AuditService.log_for_object(
+        enquiry, action="CORRECTION_REQUESTED", category="Correction",
+        severity=AuditLog.Severity.INFO, actor=requested_by, college=enquiry.college,
+        new_values={"reason": reason, "message": message},
+        metadata={"correction_request_id": correction.pk},
+        request=request,
+    )
     return correction
 
 
@@ -173,8 +186,12 @@ def mark_correction_responded(correction_request):
     return correction_request
 
 
-def resolve_correction_request(correction_request, resolved_by):
-    """Staff confirms the student's update addressed the request."""
+def resolve_correction_request(correction_request, resolved_by, request=None):
+    """Staff confirms the student's update addressed the request.
+
+    `request` (Phase 3B): optional, only used for the resulting Audit
+    Log entry's IP/user agent.
+    """
     correction_request.status = CorrectionRequest.Status.RESOLVED
     correction_request.resolved_by = resolved_by
     correction_request.resolved_at = timezone.now()
@@ -193,5 +210,13 @@ def resolve_correction_request(correction_request, resolved_by):
         description=correction_request.reason,
         actor=resolved_by, icon="check-circle",
         metadata={"correction_request_id": correction_request.pk},
+    )
+    AuditService.log_for_object(
+        correction_request.enquiry, action="CORRECTION_RESOLVED", category="Correction",
+        severity=AuditLog.Severity.INFO, actor=resolved_by, college=correction_request.enquiry.college,
+        previous_values={"status": CorrectionRequest.Status.OPEN},
+        new_values={"status": CorrectionRequest.Status.RESOLVED},
+        metadata={"correction_request_id": correction_request.pk},
+        request=request,
     )
     return correction_request
