@@ -85,6 +85,9 @@
                                                 <span class="badge rounded-pill bg-danger ms-1">{{ row.unread_count }}</span>
                                                 {% endif %}
                                             </a>
+                                            <a href="{% url 'admissions:enquiry_timeline' row.enquiry.pk %}" class="btn btn-sm btn-outline-secondary">
+                                                Timeline
+                                            </a>
                                         </td>
                                     </tr>
                                     {% endfor %}

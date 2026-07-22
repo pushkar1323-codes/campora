@@ -176,6 +176,17 @@ Implemented so far:
   Unread-message badges now also appear on the enquiry list and student
   dashboard (computed in one bulk query per page, not per row).
 
+- **Enterprise Timeline Engine** (Phase 3A of the same roadmap): a
+  reusable `timeline` app -- user-facing chronological history (not an
+  audit log), automatically recorded with no manual creation: Enquiry
+  Submitted, Correction Requested/Submitted/Resolved, Student/Staff
+  Replied, and Status Updated (with specialized "Enquiry Admitted"/
+  "Enquiry Rejected" events for those two outcomes). Newest-first,
+  relative-time display, viewable by the owning Student and by
+  college-scoped Staff/Admin. Categories/event types are deliberately
+  free-text, not a fixed enum, so future modules can introduce their own
+  without a migration.
+
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
 CSV/Excel export, AWS deployment.
 
@@ -385,6 +396,9 @@ college_admission/
 ├── staff_notes/       # Internal Staff Notes (private, staff-only) --
 │                     # separate module from communication, same generic
 │                     # ContentType pattern; see StaffNoteService
+├── timeline/           # Enterprise Timeline Engine -- user-facing
+│                     # chronological history (not an audit log), same
+│                     # generic ContentType pattern; see TimelineService
 ├── core/              # Public website (Home, About, Colleges, Courses,
 │                     # Contact) + seed_data command
 ├── config/            # Django project settings, root URLs, WSGI/ASGI

@@ -44,6 +44,8 @@ from staff_notes import permissions as note_permissions
 from staff_notes.forms import StaffNoteForm
 from staff_notes.models import StaffNote
 from staff_notes.services import StaffNoteService
+from timeline.models import TimelineEntry
+from timeline.services import TimelineService
 from .forms import SORT_FIELD_MAP, EnquiryFilterForm, EnquiryUpdateForm
 
 logger = logging.getLogger(__name__)
@@ -427,6 +429,7 @@ def enquiry_detail(request, pk):
         "staff_notes": StaffNoteService.get_notes(enquiry, include_deleted=can_restore_notes),
         "note_form": StaffNoteForm(),
         "can_restore_notes": can_restore_notes,
+        "timeline_entries": TimelineService.get_timeline(enquiry),
     }
     return render(request, "dashboard/enquiry_detail.html", context)
 
@@ -459,11 +462,20 @@ def enquiry_edit(request, pk):
     can_edit_personal = can_staff_edit_personal_fields(request.user)
 
     if request.method == "POST":
+        # Captured BEFORE constructing the bound form: EnquiryUpdateForm's
+        # is_valid()/full_clean() already mutates `enquiry` (the same
+        # instance passed as `instance=`) in place via
+        # construct_instance() -- by the time is_valid() returns,
+        # enquiry.status already holds the NEW value, so the old value
+        # must be read before the form is even built.
+        previous_status = enquiry.status
         form = EnquiryUpdateForm(
             request.POST, instance=enquiry, staff_college=college, can_edit_personal=can_edit_personal
         )
         if form.is_valid():
             form.save()
+            if enquiry.status != previous_status:
+                _log_status_change_timeline_event(enquiry, previous_status, request.user)
             messages.success(request, f"Enquiry #{enquiry.pk} ({enquiry.full_name}) updated successfully.")
             return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
         messages.error(request, "Please correct the errors below and try again.")
@@ -497,6 +509,40 @@ def _staff_scope(request):
         messages.error(request, "Your account is not linked to a college yet. Contact your Platform Admin.")
         return None, redirect("core:home")
     return college, None
+
+
+def _log_status_change_timeline_event(enquiry, previous_status, actor):
+    """Phase 3A, Feature 3 — "Status Updated" / "Accepted" / "Rejected".
+
+    A plain "Status Updated" event covers every transition; ADMITTED and
+    REJECTED (the two terminal outcomes this model actually defines --
+    see admissions.models.Enquiry.Status) additionally get a more
+    specific title/icon, satisfying Feature 3's named "Accepted"/
+    "Rejected" examples without a separate code path. "Waitlisted" from
+    Feature 3's example list has no corresponding status on this model
+    (not in DATABASE_DESIGN.docx) and is intentionally not fabricated
+    here -- adding one would be a speculative Enquiry schema change well
+    outside a Timeline-tracking phase's scope.
+    """
+    specific = {
+        Enquiry.Status.ADMITTED: ("Enquiry Admitted", "check-circle", "ENQUIRY_ADMITTED"),
+        Enquiry.Status.REJECTED: ("Enquiry Rejected", "x-circle", "ENQUIRY_REJECTED"),
+    }.get(enquiry.status)
+
+    if specific:
+        title, icon, event_type = specific
+    else:
+        title, icon, event_type = "Status Updated", "refresh-cw", "STATUS_UPDATED"
+
+    TimelineService.log_event(
+        enquiry,
+        category=TimelineEntry.Category.STATUS,
+        event_type=event_type,
+        title=title,
+        description=f"Status changed from {Enquiry.Status(previous_status).label} to {enquiry.get_status_display()}.",
+        actor=actor, icon=icon,
+        metadata={"previous_status": previous_status, "new_status": enquiry.status},
+    )
 
 
 @role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
@@ -670,6 +716,7 @@ def request_correction(request, pk):
         "staff_notes": StaffNoteService.get_notes(enquiry, include_deleted=can_restore_notes),
         "note_form": StaffNoteForm(),
         "can_restore_notes": can_restore_notes,
+        "timeline_entries": TimelineService.get_timeline(enquiry),
     }
     return render(request, "dashboard/enquiry_detail.html", context)
 
@@ -719,6 +766,13 @@ def enquiry_message_reply(request, pk):
             CommunicationService.post_message(
                 enquiry, sender=request.user, content=form.cleaned_data["content"],
                 sender_role=request.user.get_role_display(),
+            )
+            TimelineService.log_event(
+                enquiry,
+                category=TimelineEntry.Category.COMMUNICATION,
+                event_type="STAFF_REPLIED",
+                title="Staff Replied",
+                actor=request.user, icon="message-square",
             )
             messages.success(request, "Message sent.")
         else:

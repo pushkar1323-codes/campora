@@ -396,3 +396,86 @@ class UnreadMessageBadgeTests(TestCase):
         self.assertEqual(
             CommunicationService.get_unread_count(self.enquiry, self.staff), 0
         )
+
+
+class TimelineStaffEventTests(TestCase):
+    """Phase 3A: automatic Timeline events fire from staff-side actions."""
+
+    def setUp(self):
+        self.college, self.course = _make_college_and_course()
+        self.staff = User.objects.create_user(username="staff1", password="pass12345", role=User.Role.COLLEGE_STAFF, is_staff=True)
+        StaffProfile.objects.create(user=self.staff, college=self.college, designation="Staff")
+        self.enquiry = Enquiry.objects.create(
+            full_name="Student One", father_name="F", email="s1@example.com", mobile="9999999999",
+            address="Addr", dob="2000-01-01", gender="M", course=self.course,
+            qualification="Class 12", percentage=80, admission_year=2026, status=Enquiry.Status.NEW,
+        )
+
+    def test_staff_reply_logs_timeline_event(self):
+        from timeline.services import TimelineService
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:enquiry_message_reply", args=[self.enquiry.pk]), {"content": "Please upload documents."})
+        entries = list(TimelineService.get_timeline(self.enquiry))
+        self.assertTrue(any(e.event_type == "STAFF_REPLIED" for e in entries))
+
+    def test_status_change_logs_generic_status_updated_event(self):
+        from timeline.services import TimelineService
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]), {
+            "college": self.college.pk, "course": self.course.pk, "status": Enquiry.Status.CONTACTED,
+            "admission_year": "2026",
+        })
+        entries = list(TimelineService.get_timeline(self.enquiry))
+        matching = [e for e in entries if e.event_type == "STATUS_UPDATED"]
+        self.assertEqual(len(matching), 1)
+        self.assertIn("New", matching[0].description)
+        self.assertIn("Contacted", matching[0].description)
+
+    def test_status_change_to_admitted_logs_specific_event(self):
+        from timeline.services import TimelineService
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]), {
+            "college": self.college.pk, "course": self.course.pk, "status": Enquiry.Status.ADMITTED,
+            "admission_year": "2026",
+        })
+        entries = list(TimelineService.get_timeline(self.enquiry))
+        self.assertTrue(any(e.event_type == "ENQUIRY_ADMITTED" and e.title == "Enquiry Admitted" for e in entries))
+
+    def test_status_change_to_rejected_logs_specific_event(self):
+        from timeline.services import TimelineService
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]), {
+            "college": self.college.pk, "course": self.course.pk, "status": Enquiry.Status.REJECTED,
+            "admission_year": "2026",
+        })
+        entries = list(TimelineService.get_timeline(self.enquiry))
+        self.assertTrue(any(e.event_type == "ENQUIRY_REJECTED" and e.title == "Enquiry Rejected" for e in entries))
+
+    def test_no_status_change_logs_no_event(self):
+        """Saving the edit form without actually changing the status
+        must not fabricate a spurious 'Status Updated' entry."""
+        from timeline.services import TimelineService
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:enquiry_edit", args=[self.enquiry.pk]), {
+            "college": self.college.pk, "course": self.course.pk, "status": Enquiry.Status.NEW,
+            "admission_year": "2026",
+        })
+        entries = list(TimelineService.get_timeline(self.enquiry))
+        self.assertEqual(len(entries), 0)
+
+    def test_correction_resolution_logs_timeline_event(self):
+        from timeline.services import TimelineService
+        from admissions.services import create_correction_request
+
+        correction = create_correction_request(self.enquiry, requested_by=self.staff, reason="Fix phone")
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(reverse("dashboard:resolve_correction", args=[self.enquiry.pk, correction.pk]))
+        entries = list(TimelineService.get_timeline(self.enquiry))
+        self.assertTrue(any(e.event_type == "CORRECTION_RESOLVED" for e in entries))
+
+    def test_enquiry_detail_renders_timeline_entries(self):
+        from timeline.services import TimelineService
+        TimelineService.log_event(self.enquiry, category="STATUS", event_type="TEST", title="Test Timeline Entry")
+        self.client.login(username="staff1", password="pass12345")
+        response = self.client.get(reverse("dashboard:enquiry_detail", args=[self.enquiry.pk]))
+        self.assertContains(response, "Test Timeline Entry")

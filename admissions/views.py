@@ -28,6 +28,8 @@ from communication.forms import MessageEditForm, MessageForm
 from communication.models import Message
 from communication.services import CommunicationService
 from courses.models import College, Course
+from timeline.models import TimelineEntry
+from timeline.services import TimelineService
 
 from .forms import EnquiryForm, EnquirySelfEditForm
 from .models import Enquiry
@@ -78,6 +80,15 @@ def enquiry_create(request, course_id):
                 enquiry.email,
                 course.course_name,
                 course.college.name,
+            )
+            TimelineService.log_event(
+                enquiry,
+                category=TimelineEntry.Category.ADMISSION,
+                event_type="ENQUIRY_SUBMITTED",
+                title="Enquiry Submitted",
+                description=f"Enquiry submitted for {course.course_name} at {course.college.name}.",
+                actor=enquiry.submitted_by,
+                icon="file-plus",
             )
             messages.success(
                 request,
@@ -140,6 +151,15 @@ def enquiry_self_edit(request, pk):
             form.save()
             if active_correction:
                 mark_correction_responded(active_correction)
+                TimelineService.log_event(
+                    enquiry,
+                    category=TimelineEntry.Category.CORRECTION,
+                    event_type="CORRECTION_SUBMITTED",
+                    title="Correction Submitted",
+                    description=f"Student updated their enquiry in response to: {active_correction.reason}",
+                    actor=request.user, icon="check-check",
+                    metadata={"correction_request_id": active_correction.pk},
+                )
             logger.info("Enquiry #%s self-edited by %s", enquiry.pk, request.user.username)
             messages.success(request, "Your enquiry has been updated.")
             return redirect("dashboard:student")
@@ -177,6 +197,13 @@ def enquiry_conversation(request, pk):
             CommunicationService.post_message(
                 enquiry, sender=request.user, content=form.cleaned_data["content"],
                 sender_role=request.user.get_role_display(),
+            )
+            TimelineService.log_event(
+                enquiry,
+                category=TimelineEntry.Category.COMMUNICATION,
+                event_type="STUDENT_REPLIED",
+                title="Student Replied",
+                actor=request.user, icon="message-square",
             )
             messages.success(request, "Message sent.")
             return redirect("admissions:enquiry_conversation", pk=enquiry.pk)
@@ -246,3 +273,25 @@ def message_delete(request, pk):
         CommunicationService.delete_message(message, deleted_by=request.user)
         messages.success(request, "Message deleted.")
     return redirect("admissions:enquiry_conversation", pk=owner.pk)
+
+
+@login_required
+def enquiry_timeline(request, pk):
+    """Phase 3A, Feature 5 — a Student views their own enquiry's
+    Timeline. Ownership-scoped exactly like enquiry_self_edit/
+    enquiry_conversation (submitted_by=request.user, 404 for anyone
+    else's enquiry) -- that scoping IS the entire authorization for this
+    view; see timeline/services.py's module docstring for why no
+    additional generic permission layer is needed on top of it (Timeline
+    is read-only, there's no edit/delete/restore role matrix the way
+    Staff Notes has).
+    """
+    enquiry = get_object_or_404(
+        Enquiry.objects.select_related("course", "college"),
+        pk=pk, submitted_by=request.user,
+    )
+    context = {
+        "enquiry": enquiry,
+        "timeline_entries": TimelineService.get_timeline(enquiry),
+    }
+    return render(request, "admissions/enquiry_timeline.html", context)

@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'dashboard',
     'communication',
     'staff_notes',
+    'timeline',
 ]
 
 MIDDLEWARE = [

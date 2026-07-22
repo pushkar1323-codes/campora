@@ -90,6 +90,10 @@
                                     <i data-lucide="message-square" style="width:16px;height:16px;"></i>
                                     Messages
                                 </a>
+                                <a href="{% url 'admissions:enquiry_timeline' enquiry.pk %}" class="btn btn-outline-secondary px-4">
+                                    <i data-lucide="history" style="width:16px;height:16px;"></i>
+                                    Timeline
+                                </a>
                                 <a href="{% url 'dashboard:student' %}" class="btn btn-outline-secondary px-4">Cancel</a>
                             </div>
                         </form>
@@ -106,6 +110,7 @@
                             <i data-lucide="message-square" style="width:16px;height:16px;"></i>
                             Contact Admission Office
                         </a>
+                        <a href="{% url 'admissions:enquiry_timeline' enquiry.pk %}" class="btn btn-outline-secondary">Timeline</a>
                         <a href="{% url 'dashboard:student' %}" class="btn btn-outline-primary">Back to Dashboard</a>
                     </div>
                 </div>

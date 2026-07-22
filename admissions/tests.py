@@ -243,3 +243,92 @@ class EnquiryConversationViewTests(TestCase):
         self.assertTrue(latest.is_system_generated)
         self.assertIn("Incorrect phone number", latest.content)
         self.assertIsNone(latest.sender)
+
+
+class TimelineAutomaticEventTests(TestCase):
+    """Phase 3A: automatic Timeline events fire from the real
+    admissions-app code paths, with no manual creation required."""
+
+    def setUp(self):
+        self.college, self.course = _make_college_and_course()
+        self.student = User.objects.create_user(
+            username="student1", password="pass12345", role=User.Role.STUDENT, email="s1@example.com"
+        )
+        StudentProfile.objects.create(user=self.student, phone="9999999999")
+        self.staff = User.objects.create_user(username="staff1", password="pass12345", role=User.Role.COLLEGE_STAFF)
+
+    def test_enquiry_submission_logs_timeline_event(self):
+        from timeline.services import TimelineService
+        self.client.login(username="student1", password="pass12345")
+        self.client.post(reverse("admissions:enquiry_create", args=[self.course.pk]), {
+            "full_name": "Student One", "father_name": "F", "email": "s1@example.com",
+            "mobile": "9999999999", "address": "Addr", "dob": "2000-01-01", "gender": "M",
+            "qualification": "Class 12", "percentage": "80.00", "admission_year": "2026",
+        })
+        enquiry = Enquiry.objects.get(submitted_by=self.student)
+        entries = list(TimelineService.get_timeline(enquiry))
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0].event_type, "ENQUIRY_SUBMITTED")
+        self.assertEqual(entries[0].actor, self.student)
+
+    def test_student_reply_logs_timeline_event(self):
+        from timeline.services import TimelineService
+        enquiry = Enquiry.objects.create(
+            full_name="Student One", father_name="F", email="s1@example.com", mobile="9999999999",
+            address="Addr", dob="2000-01-01", gender="M", course=self.course,
+            qualification="Class 12", percentage=80, admission_year=2026, submitted_by=self.student,
+        )
+        self.client.login(username="student1", password="pass12345")
+        self.client.post(reverse("admissions:enquiry_conversation", args=[enquiry.pk]), {"content": "Hello"})
+        entries = list(TimelineService.get_timeline(enquiry))
+        self.assertTrue(any(e.event_type == "STUDENT_REPLIED" for e in entries))
+
+    def test_correction_request_and_submission_log_timeline_events(self):
+        from timeline.services import TimelineService
+        from admissions.services import create_correction_request
+
+        enquiry = Enquiry.objects.create(
+            full_name="Student One", father_name="F", email="s1@example.com", mobile="9999999999",
+            address="Addr", dob="2000-01-01", gender="M", course=self.course,
+            qualification="Class 12", percentage=80, admission_year=2026, submitted_by=self.student,
+        )
+        create_correction_request(enquiry, requested_by=self.staff, reason="Fix phone")
+        entries = list(TimelineService.get_timeline(enquiry))
+        self.assertTrue(any(e.event_type == "CORRECTION_REQUESTED" for e in entries))
+
+        self.client.login(username="student1", password="pass12345")
+        self.client.post(reverse("admissions:enquiry_self_edit", args=[enquiry.pk]), {
+            "course": self.course.pk, "qualification": "Updated", "percentage": "91.00", "admission_year": "2026",
+        })
+        entries = list(TimelineService.get_timeline(enquiry))
+        self.assertTrue(any(e.event_type == "CORRECTION_SUBMITTED" for e in entries))
+
+
+class EnquiryTimelineViewTests(TestCase):
+    """Phase 3A, Feature 5: Student can view own enquiry timeline; never
+    another student's."""
+
+    def setUp(self):
+        self.college, self.course = _make_college_and_course()
+        self.student = User.objects.create_user(username="student1", password="pass12345", role=User.Role.STUDENT)
+        self.other_student = User.objects.create_user(username="student2", password="pass12345", role=User.Role.STUDENT)
+        self.enquiry = Enquiry.objects.create(
+            full_name="Student One", father_name="F", email="s1@example.com", mobile="9999999999",
+            address="Addr", dob="2000-01-01", gender="M", course=self.course,
+            qualification="Class 12", percentage=80, admission_year=2026, submitted_by=self.student,
+        )
+
+    def test_owner_can_view_own_timeline(self):
+        self.client.login(username="student1", password="pass12345")
+        response = self.client.get(reverse("admissions:enquiry_timeline", args=[self.enquiry.pk]))
+        self.assertEqual(response.status_code, 200)
+
+    def test_other_student_cannot_view_timeline(self):
+        self.client.login(username="student2", password="pass12345")
+        response = self.client.get(reverse("admissions:enquiry_timeline", args=[self.enquiry.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_anonymous_redirected_to_login(self):
+        response = self.client.get(reverse("admissions:enquiry_timeline", args=[self.enquiry.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)

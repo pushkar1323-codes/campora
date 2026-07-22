@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Timeline - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4">
+        <h1 class="campora-heading mb-1">Enquiry Timeline</h1>
+        <p class="text-muted mb-0">
+            {{ enquiry.course.course_name }} at {{ enquiry.college.name }}
+        </p>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body">
+                        {% include 'timeline/_timeline_list.html' %}
+                    </div>
+                </div>
+                <a href="{% url 'dashboard:student' %}" class="btn btn-outline-secondary mt-3">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

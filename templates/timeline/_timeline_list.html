@@ -1,0 +1,46 @@
+{% comment %}
+Reusable Timeline display (Phase 3A). Included identically from both the
+staff (dashboard) and student (admissions) timeline views -- no
+duplicated markup. Feature 4: newest-first (already guaranteed by
+TimelineEntry.Meta.ordering), icon + title + description + timestamp +
+actor + actor role per entry, with a relative-time hint alongside the
+absolute timestamp.
+
+Expected context:
+  timeline_entries -- queryset/list of timeline.TimelineEntry
+{% endcomment %}
+{% if timeline_entries %}
+<div class="d-flex flex-column gap-3">
+    {% for entry in timeline_entries %}
+    <div class="d-flex gap-3">
+        <div class="flex-shrink-0">
+            <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle text-primary" style="width:36px;height:36px;">
+                <i data-lucide="{{ entry.icon|default:'circle' }}" style="width:18px;height:18px;"></i>
+            </span>
+        </div>
+        <div class="flex-grow-1 border-bottom pb-3">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div class="fw-semibold">{{ entry.title }}</div>
+                <div class="text-muted small" title="{{ entry.created_at|date:'M d, Y, g:i a' }}">
+                    {{ entry.created_at|timesince }} ago
+                </div>
+            </div>
+            {% if entry.description %}
+            <div class="text-muted small mt-1">{{ entry.description }}</div>
+            {% endif %}
+            {% if entry.actor %}
+            <div class="text-muted small mt-1">
+                {{ entry.actor.get_full_name|default:entry.actor.username }}
+                {% if entry.actor_role %}&middot; {{ entry.actor_role }}{% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="campora-empty-state">
+    <i data-lucide="history"></i>
+    <p class="mb-0">No activity has been recorded for this enquiry yet.</p>
+</div>
+{% endif %}

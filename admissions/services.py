@@ -33,6 +33,8 @@ from django.utils import timezone
 
 from communication.models import Message
 from communication.services import CommunicationService
+from timeline.models import TimelineEntry
+from timeline.services import TimelineService
 
 from .models import CorrectionRequest, Enquiry
 
@@ -142,6 +144,15 @@ def create_correction_request(enquiry, requested_by, reason, message=""):
         message_type=Message.Type.CORRECTION_REQUEST,
         metadata={"correction_request_id": correction.pk},
     )
+    TimelineService.log_event(
+        enquiry,
+        category=TimelineEntry.Category.CORRECTION,
+        event_type="CORRECTION_REQUESTED",
+        title="Correction Requested",
+        description=reason,
+        actor=requested_by, icon="alert-triangle",
+        metadata={"correction_request_id": correction.pk},
+    )
     return correction
 
 
@@ -173,5 +184,14 @@ def resolve_correction_request(correction_request, resolved_by):
     logger.info(
         "Correction request #%s resolved by %s (Enquiry #%s)",
         correction_request.pk, resolved_by.username, correction_request.enquiry_id,
+    )
+    TimelineService.log_event(
+        correction_request.enquiry,
+        category=TimelineEntry.Category.CORRECTION,
+        event_type="CORRECTION_RESOLVED",
+        title="Correction Resolved",
+        description=correction_request.reason,
+        actor=resolved_by, icon="check-circle",
+        metadata={"correction_request_id": correction_request.pk},
     )
     return correction_request
