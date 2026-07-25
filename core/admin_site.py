@@ -87,7 +87,9 @@ class CamporaAdminSite(admin.AdminSite):
                 ("Courses", reverse("admin:courses_course_changelist")),
                 ("Enquiries", reverse("admin:admissions_enquiry_changelist")),
                 ("Users", reverse("admin:accounts_user_changelist")),
-                ("Audit Logs", reverse("admin:admin_logentry_changelist")),
+                ("Timeline", reverse("admin:timeline_timelineentry_changelist")),
+                ("Audit Logs", reverse("admin:audit_auditlog_changelist")),
+                ("Admin Action Log", reverse("admin:admin_logentry_changelist")),
             ]
         elif request.user.is_authenticated and request.user.role == User.Role.COLLEGE_ADMIN:
             college = get_staff_college(request.user)
@@ -117,6 +119,8 @@ class CamporaAdminSite(admin.AdminSite):
                     ("Courses", reverse("admin:courses_course_changelist")),
                     ("Enquiries", reverse("admin:admissions_enquiry_changelist")),
                     ("Staff", reverse("admin:accounts_staffprofile_changelist")),
+                    ("Timeline", reverse("admin:timeline_timelineentry_changelist")),
+                    ("Audit Logs", reverse("admin:audit_auditlog_changelist")),
                 ]
 
         context["campora_debug_mode"] = settings.DEBUG
@@ -127,18 +131,39 @@ campora_admin_site = CamporaAdminSite(name="campora_admin")
 
 
 class ReadOnlyLogEntryAdmin(admin.ModelAdmin):
-    """Phase 11 (Admin Panel Upgrade): "Audit Logs" quick action. Backed
-    by Django admin's own LogEntry model, which already records every
-    add/change/delete made through this admin site — genuinely real data,
-    not a placeholder. Read-only and Platform-Admin-only (see
-    has_add/change/delete_permission below): an audit trail that could
-    itself be edited or deleted wouldn't be much of an audit trail.
+    """Phase 11 (Admin Panel Upgrade): Django admin's own action log --
+    who added/changed/deleted objects through this admin site. Distinct
+    from, and narrower than, the business-level Audit Logging Engine
+    (audit.AuditLog, Phase 3B/3C) — this only ever sees actions taken
+    *inside the Django admin itself*; the business AuditLog also covers
+    logins, correction requests, status changes, college
+    approvals, and anything else that happens through the app's own
+    views. Kept registered (relabeled "Admin Action Log" in the
+    dashboard's quick links — see index() above) rather than removed,
+    since it's real, distinct data that predates and still complements
+    the newer engine, not a placeholder duplicating it.
+
+    Read-only and Platform-Admin-only (see has_add/change/delete_permission
+    below): an audit trail that could itself be edited or deleted
+    wouldn't be much of an audit trail.
+
+    NOTE: deliberately no `date_hierarchy` here. Django's `date_hierarchy`
+    drill-down annotates with `TruncMonth`/`TruncDay`, which MySQL
+    executes via `CONVERT_TZ()` whenever `USE_TZ=True` — and that raises
+    a hard `ValueError` ("Database returned an invalid datetime value...")
+    if the MySQL server's timezone tables haven't been loaded
+    (`mysql_tzinfo_to_sql`), which is the out-of-the-box state on most
+    Windows MySQL installs (there's no bundled equivalent of the
+    `mysql_tzinfo_to_sql` step Linux packages typically run for you).
+    `("action_time", admin.DateFieldListFilter)` below gives the same
+    "search/filter by date" capability via simple `__gte`/`__lt` range
+    lookups on the raw column, which MySQL can satisfy without any
+    server-side timezone conversion at all.
     """
 
     list_display = ("action_time", "user", "content_type", "object_repr", "action_flag")
-    list_filter = ("action_flag", "content_type")
+    list_filter = ("action_flag", "content_type", ("action_time", admin.DateFieldListFilter))
     search_fields = ("object_repr", "user__username")
-    date_hierarchy = "action_time"
     list_select_related = ("user", "content_type")
     ordering = ("-action_time",)
 

@@ -34,12 +34,22 @@ class AuditLogAdmin(CollegeScopedAdminMixin, admin.ModelAdmin):
     """
 
     list_display = ("id", "action", "action_category", "severity", "actor", "college", "target_model", "created_at")
-    list_filter = ("severity", "action_category", "action", "college", "target_model", "actor_role")
+    list_filter = (
+        "severity", "action_category", "action", "college", "target_model", "actor_role",
+        ("created_at", admin.DateFieldListFilter),
+    )
     search_fields = (
         "action", "action_category", "object_display_name", "target_model",
         "actor__username", "actor__first_name", "actor__last_name",
     )
-    date_hierarchy = "created_at"  # Feature 1: search by Date
+    # NOTE: deliberately no `date_hierarchy` here -- see the identical,
+    # more detailed note in timeline.admin.TimelineEntryAdmin. MySQL's
+    # CONVERT_TZ() requirement for the TruncMonth/TruncDay annotations
+    # date_hierarchy uses raises a hard ValueError on any MySQL server
+    # without timezone tables loaded -- confirmed by a real crash report
+    # against the equivalent, longer-standing
+    # core.admin_site.ReadOnlyLogEntryAdmin. DateFieldListFilter above
+    # gives Feature 1's "search by Date" without that requirement.
     ordering = ("-created_at",)
     list_select_related = ("actor", "college")  # Feature 6
     list_per_page = 50  # Feature 3/6

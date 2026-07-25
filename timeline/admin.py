@@ -27,12 +27,20 @@ class TimelineEntryAdmin(CollegeScopedAdminMixin, admin.ModelAdmin):
     """
 
     list_display = ("id", "category", "event_type", "title", "actor", "college", "created_at")
-    list_filter = ("category", "event_type", "college", "content_type")
+    list_filter = ("category", "event_type", "college", "content_type", ("created_at", admin.DateFieldListFilter))
     search_fields = (
         "title", "description", "event_type",
         "actor__username", "actor__first_name", "actor__last_name",
     )
-    date_hierarchy = "created_at"  # Feature 1/2: search/filter by Date
+    # NOTE: deliberately no `date_hierarchy` here -- it annotates with
+    # TruncMonth/TruncDay, which MySQL executes via CONVERT_TZ() under
+    # USE_TZ=True, and raises a hard ValueError if the server's timezone
+    # tables aren't loaded (the out-of-the-box state on most Windows
+    # MySQL installs -- confirmed by a real crash report on the
+    # equivalent core.admin_site.ReadOnlyLogEntryAdmin, which used to set
+    # it). The DateFieldListFilter above gives the same "search/filter by
+    # Date" capability (Feature 1/2) via plain range lookups instead,
+    # which need no server-side timezone conversion at all.
     ordering = ("-created_at",)
     list_select_related = ("actor", "college", "content_type")  # Feature 6
     list_per_page = 50  # Feature 3/6: pagination, large-dataset friendly

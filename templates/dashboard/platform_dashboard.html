@@ -124,10 +124,26 @@
                     </div>
                 </div>
                 <div class="col-6 col-md-4 col-lg-3">
-                    <a href="{% url 'admin:admin_logentry_changelist' %}" class="card quick-action-card">
+                    <a href="{% url 'admin:timeline_timelineentry_changelist' %}" class="card quick-action-card">
+                        <div class="card-body">
+                            <div class="quick-action-icon"><i data-lucide="history" style="width:20px;height:20px;"></i></div>
+                            <div class="fw-semibold">Timeline</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-4 col-lg-3">
+                    <a href="{% url 'admin:audit_auditlog_changelist' %}" class="card quick-action-card">
                         <div class="card-body">
                             <div class="quick-action-icon"><i data-lucide="scroll-text" style="width:20px;height:20px;"></i></div>
                             <div class="fw-semibold">Audit Logs</div>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-6 col-md-4 col-lg-3">
+                    <a href="{% url 'admin:admin_logentry_changelist' %}" class="card quick-action-card">
+                        <div class="card-body">
+                            <div class="quick-action-icon"><i data-lucide="scroll" style="width:20px;height:20px;"></i></div>
+                            <div class="fw-semibold">Admin Action Log</div>
                         </div>
                     </a>
                 </div>
