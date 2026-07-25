@@ -27,9 +27,11 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'core:courses' %}">Courses</a>
                 </li>
+                {% if not request.user.is_platform_admin %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'core:contact' %}">Contact</a>
                 </li>
+                {% endif %}
                 {% if request.user.is_authenticated %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'dashboard:home' %}">
