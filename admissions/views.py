@@ -89,6 +89,7 @@ def enquiry_create(request, course_id):
                 description=f"Enquiry submitted for {course.course_name} at {course.college.name}.",
                 actor=enquiry.submitted_by,
                 icon="file-plus",
+                college=course.college,
             )
             messages.success(
                 request,
@@ -159,6 +160,7 @@ def enquiry_self_edit(request, pk):
                     description=f"Student updated their enquiry in response to: {active_correction.reason}",
                     actor=request.user, icon="check-check",
                     metadata={"correction_request_id": active_correction.pk},
+                    college=enquiry.college,
                 )
             logger.info("Enquiry #%s self-edited by %s", enquiry.pk, request.user.username)
             messages.success(request, "Your enquiry has been updated.")
@@ -204,6 +206,7 @@ def enquiry_conversation(request, pk):
                 event_type="STUDENT_REPLIED",
                 title="Student Replied",
                 actor=request.user, icon="message-square",
+                college=enquiry.college,
             )
             messages.success(request, "Message sent.")
             return redirect("admissions:enquiry_conversation", pk=enquiry.pk)

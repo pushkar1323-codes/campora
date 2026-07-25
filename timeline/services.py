@@ -35,7 +35,7 @@ class TimelineService:
         return ContentType.objects.get_for_model(type(obj))
 
     @staticmethod
-    def log_event(obj, category, event_type, title, description="", actor=None, actor_role="", icon="", metadata=None):
+    def log_event(obj, category, event_type, title, description="", actor=None, actor_role="", icon="", metadata=None, college=None):
         """Feature 3: record one automatic timeline entry against `obj`.
         Never called directly in response to a raw user request -- always
         from application code that has already decided a real event
@@ -44,6 +44,10 @@ class TimelineService:
         in admissions/services.py, admissions/views.py and
         dashboard/views.py for the concrete Feature 3 event list actually
         wired up this phase.
+
+        `college` (Phase 3C, Feature 4): optional -- only the calling code
+        knows what "college" means for `obj` (this service doesn't), so it
+        must be passed explicitly when college-scoped querying matters.
         """
         content_type = TimelineService._content_type_for(obj)
         resolved_role = actor_role or (getattr(actor, "get_role_display", lambda: "")() if actor else "")
@@ -51,6 +55,7 @@ class TimelineService:
             content_type=content_type, object_id=obj.pk,
             category=category, event_type=event_type, title=title, description=description,
             actor=actor, actor_role=resolved_role, icon=icon, metadata=metadata or {},
+            college=college,
         )
 
     @staticmethod
@@ -68,3 +73,13 @@ class TimelineService:
     @staticmethod
     def get_timeline_count(obj):
         return TimelineService.get_timeline(obj).count()
+
+    @staticmethod
+    def get_entries_for_college(college):
+        """Phase 3C, Feature 4: the college-scoped query the Admin Panel's
+        TimelineEntryAdmin needs. Pagination-ready (unsliced). Only
+        returns entries that were actually tagged with a `college` at
+        creation time -- see the `college` field's own docstring on why
+        that's optional and caller-supplied.
+        """
+        return TimelineEntry.objects.filter(college=college).select_related("actor")

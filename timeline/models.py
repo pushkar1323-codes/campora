@@ -78,6 +78,16 @@ class TimelineEntry(models.Model):
         help_text="Free-text snapshot of the actor's role at event time, same pattern as "
                    "communication.Message.sender_role / staff_notes.StaffNote.author_role.",
     )
+    college = models.ForeignKey(
+        "courses.College", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="timeline_entries",
+        help_text="Phase 3C, Feature 4 (College Isolation): a real FK -- not resolved through "
+                   "content_object -- for efficient college-scoped admin queries, the same "
+                   "reasoning audit.AuditLog already uses. Optional and generic: only the calling "
+                   "code (which knows what obj is) can supply it; TimelineService itself has no "
+                   "idea what 'college' means for any given object type. SET_NULL, not CASCADE, "
+                   "so a college's own removal never takes its timeline history down with it.",
+    )
 
     metadata = models.JSONField(default=dict, blank=True)
     icon = models.CharField(
@@ -93,6 +103,7 @@ class TimelineEntry(models.Model):
         indexes = [
             models.Index(fields=["content_type", "object_id", "created_at"]),
             models.Index(fields=["content_type", "object_id", "category"]),
+            models.Index(fields=["college", "created_at"]),
         ]
 
     def __str__(self):

@@ -185,7 +185,9 @@ Implemented so far:
   relative-time display, viewable by the owning Student and by
   college-scoped Staff/Admin. Categories/event types are deliberately
   free-text, not a fixed enum, so future modules can introduce their own
-  without a migration.
+  without a migration. Now (Phase 3C) also carries a `college` field for
+  efficient scoped querying, and is fully searchable/filterable/
+  paginated in the Campora Admin Panel.
 
 - **Enterprise Audit Logging Engine** (Phase 3B of the same roadmap): a
   separate, immutable administrative record (security, accountability,
@@ -199,8 +201,19 @@ Implemented so far:
   system), failed logins, college approve/reject/suspend, staff
   creation, enquiry status changes, and correction request/resolution.
   Restricted to Platform Admin and (their own college's) College Admin
-  only -- notably *not* College Staff, and never Students. Not
-  registered in the Campora Admin Panel this phase (by explicit design).
+  only -- notably *not* College Staff, and never Students.
+
+- **Timeline & Audit Administration** (Phase 3C, finalizing Phase 3): both
+  are now fully integrated into the Campora Admin Panel -- free-text
+  search (user, event/action, category, model), filters (date range via
+  admin date-hierarchy drill-down, college, category/action, severity,
+  target model), and pagination tuned for large datasets
+  (`list_per_page`, `show_full_result_count=False`). College Admins see
+  only their own college's entries in both (`CollegeScopedAdminMixin`,
+  the same mechanism every other college-owned model here uses); College
+  Staff and Students cannot reach the Admin Panel at all. Both remain
+  fully read-only there -- Audit Logs enforce this at the model level
+  too (immutable regardless of how they're accessed).
 
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
 CSV/Excel export, AWS deployment.

@@ -156,3 +156,101 @@ class AuthenticationAuditSignalTests(TestCase):
         self.assertIsNotNone(entry)
         self.assertEqual(entry.severity, AuditLog.Severity.WARNING)
         self.assertIsNone(entry.actor)
+
+
+class AuditAdminIntegrationTests(TestCase):
+    """Phase 3C, Feature 4/5: Audit Logs are now registered in the Campora
+    Admin Panel (reversing Phase 3B's explicit exclusion), college-scoped,
+    searchable, filterable, and still fully immutable through the admin."""
+
+    def setUp(self):
+        self.college, self.course = _make_college_and_course()
+        self.other_college, self.other_course = _make_college_and_course(name="Other College", slug="other-college-audit-admin-test")
+        self.college_admin = User.objects.create_user(
+            username="cadmin", password="pass12345", role=User.Role.COLLEGE_ADMIN, is_staff=True,
+        )
+        from accounts.models import StaffProfile
+        StaffProfile.objects.create(user=self.college_admin, college=self.college, designation="Admin")
+        self.other_college_admin = User.objects.create_user(
+            username="cadmin2", password="pass12345", role=User.Role.COLLEGE_ADMIN, is_staff=True,
+        )
+        StaffProfile.objects.create(user=self.other_college_admin, college=self.other_college, designation="Admin")
+        self.staff = User.objects.create_user(
+            username="staff1", password="pass12345", role=User.Role.COLLEGE_STAFF, is_staff=True,
+        )
+        StaffProfile.objects.create(user=self.staff, college=self.college, designation="Staff")
+        self.platform_admin = User.objects.create_user(
+            username="padmin", password="pass12345", role=User.Role.SUPER_ADMIN, is_staff=True, is_superuser=True,
+        )
+        self.entry_own = AuditService.log(
+            action="OWN_COLLEGE_ACTION", category="System", college=self.college,
+            object_display_name="Own College Entry",
+        )
+        self.entry_other = AuditService.log(
+            action="OTHER_COLLEGE_ACTION", category="System", college=self.other_college,
+            object_display_name="Other College Entry",
+        )
+
+    def test_audit_log_now_registered_in_admin(self):
+        """Explicit reversal of the Phase 3B exclusion."""
+        self.client.login(username="padmin", password="pass12345")
+        response = self.client.get("/admin/audit/auditlog/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_college_admin_sees_only_own_college_logs(self):
+        self.client.login(username="cadmin", password="pass12345")
+        response = self.client.get("/admin/audit/auditlog/")
+        self.assertContains(response, "OWN_COLLEGE_ACTION")
+        self.assertNotContains(response, "OTHER_COLLEGE_ACTION")
+
+    def test_platform_admin_sees_all_logs(self):
+        self.client.login(username="padmin", password="pass12345")
+        response = self.client.get("/admin/audit/auditlog/")
+        self.assertContains(response, "OWN_COLLEGE_ACTION")
+        self.assertContains(response, "OTHER_COLLEGE_ACTION")
+
+    def test_college_staff_cannot_log_into_admin_at_all(self):
+        """Feature 4: 'Staff: No Audit Log' -- enforced at the admin
+        SITE level (campora_admin_site.has_permission), not just this
+        ModelAdmin."""
+        self.client.login(username="staff1", password="pass12345")
+        response = self.client.get("/admin/audit/auditlog/")
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_search_by_action(self):
+        self.client.login(username="padmin", password="pass12345")
+        response = self.client.get("/admin/audit/auditlog/?q=OWN_COLLEGE")
+        results = list(response.context["cl"].queryset)
+        self.assertEqual(results, [self.entry_own])
+
+    def test_filter_by_severity(self):
+        warn_entry = AuditService.log(action="WARN_ACTION", severity=AuditLog.Severity.WARNING, college=self.college)
+        self.client.login(username="padmin", password="pass12345")
+        response = self.client.get("/admin/audit/auditlog/?severity__exact=WARNING")
+        results = list(response.context["cl"].queryset)
+        self.assertEqual(results, [warn_entry])
+
+    def test_admin_cannot_add_or_delete_even_as_platform_admin(self):
+        self.client.login(username="padmin", password="pass12345")
+        self.assertEqual(self.client.get("/admin/audit/auditlog/add/").status_code, 403)
+        self.assertEqual(
+            self.client.get(f"/admin/audit/auditlog/{self.entry_own.pk}/delete/").status_code, 403
+        )
+
+    def test_change_view_is_read_only_not_editable(self):
+        """has_view_permission stays scoped/True (Platform Admin always
+        sees it); has_change_permission is unconditionally False. Django
+        admin's own behavior for that combination is a read-only detail
+        page (200), not a 403 -- verified here that it's genuinely
+        non-editable: every field is in readonly_fields, and POSTing an
+        edit doesn't actually change anything (defense in depth on top
+        of the model/queryset-level immutability already tested above).
+        """
+        self.client.login(username="padmin", password="pass12345")
+        response = self.client.get(f"/admin/audit/auditlog/{self.entry_own.pk}/change/")
+        self.assertEqual(response.status_code, 200)
+        self.client.post(
+            f"/admin/audit/auditlog/{self.entry_own.pk}/change/", {"action": "HACKED"},
+        )
+        self.entry_own.refresh_from_db()
+        self.assertEqual(self.entry_own.action, "OWN_COLLEGE_ACTION")

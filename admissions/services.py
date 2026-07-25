@@ -158,6 +158,7 @@ def create_correction_request(enquiry, requested_by, reason, message="", request
         description=reason,
         actor=requested_by, icon="alert-triangle",
         metadata={"correction_request_id": correction.pk},
+        college=enquiry.college,
     )
     AuditService.log_for_object(
         enquiry, action="CORRECTION_REQUESTED", category="Correction",
@@ -210,6 +211,7 @@ def resolve_correction_request(correction_request, resolved_by, request=None):
         description=correction_request.reason,
         actor=resolved_by, icon="check-circle",
         metadata={"correction_request_id": correction_request.pk},
+        college=correction_request.enquiry.college,
     )
     AuditService.log_for_object(
         correction_request.enquiry, action="CORRECTION_RESOLVED", category="Correction",

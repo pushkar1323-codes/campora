@@ -595,6 +595,7 @@ def _log_status_change_timeline_event(enquiry, previous_status, actor):
         description=f"Status changed from {Enquiry.Status(previous_status).label} to {enquiry.get_status_display()}.",
         actor=actor, icon=icon,
         metadata={"previous_status": previous_status, "new_status": enquiry.status},
+        college=enquiry.college,
     )
 
 
@@ -831,6 +832,7 @@ def enquiry_message_reply(request, pk):
                 event_type="STAFF_REPLIED",
                 title="Staff Replied",
                 actor=request.user, icon="message-square",
+                college=enquiry.college,
             )
             messages.success(request, "Message sent.")
         else:
