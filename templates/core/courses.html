@@ -46,6 +46,7 @@
     </div>
 </section>
 
+{% if not request.user.is_platform_admin %}
 <section class="bg-section-light text-center">
     <div class="container py-4">
         <h2 class="campora-heading mb-3">Don't See What You're Looking For?</h2>
@@ -53,5 +54,6 @@
         <a href="{% url 'core:contact' %}" class="btn btn-primary btn-lg px-4">Contact Us</a>
     </div>
 </section>
+{% endif %}
 
 {% endblock %}

@@ -18,7 +18,9 @@
                     <li class="mb-2"><a href="{% url 'core:about' %}" class="text-light text-decoration-none">About</a></li>
                     <li class="mb-2"><a href="{% url 'core:colleges' %}" class="text-light text-decoration-none">Colleges</a></li>
                     <li class="mb-2"><a href="{% url 'core:courses' %}" class="text-light text-decoration-none">Courses</a></li>
+                    {% if not request.user.is_platform_admin %}
                     <li class="mb-2"><a href="{% url 'core:contact' %}" class="text-light text-decoration-none">Contact</a></li>
+                    {% endif %}
                 </ul>
             </div>
             <div class="col-md-3">

@@ -33,9 +33,11 @@
                     <a href="{% url 'core:colleges' %}" class="btn btn-light btn-lg px-4">
                         Browse Colleges
                     </a>
+                    {% if not request.user.is_platform_admin %}
                     <a href="{% url 'core:contact' %}" class="btn btn-accent btn-lg px-4">
                         Get in Touch
                     </a>
+                    {% endif %}
                 </div>
             </div>
             <div class="col-lg-5 d-none d-lg-flex justify-content-center">
