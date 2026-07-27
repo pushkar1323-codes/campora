@@ -14,6 +14,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from courses.models import College, Course
 
 from .forms import ContactForm
+from .services import ContactService
 
 logger = logging.getLogger(__name__)
 
@@ -113,18 +114,23 @@ def contact(request):
     details live on their respective College Detail pages.
 
     Uses the Post/Redirect/Get pattern so refreshing the confirmation page
-    never resubmits the form. The message is not persisted to the database
-    (see core/forms.py docstring) — it is validated and acknowledged; wiring
-    it to email/storage can be added in a later phase if required.
+    never resubmits the form. FIXED: the message used to be validated and
+    logged, then discarded -- it appeared to succeed from the visitor's
+    side but was never visible to any administrator. It's now persisted
+    via ContactService, reviewable by Platform Admin in the dashboard
+    (dashboard:contact_messages) and the Campora Admin Panel. Email
+    delivery remains a future enhancement (Notification Center).
     """
     if request.method == "POST":
         form = ContactForm(request.POST)
         if form.is_valid():
-            logger.info(
-                "Contact form submitted by %s <%s>: %s",
-                form.cleaned_data["full_name"],
-                form.cleaned_data["email"],
-                form.cleaned_data["subject"],
+            ContactService.create_message(
+                full_name=form.cleaned_data["full_name"],
+                email=form.cleaned_data["email"],
+                phone=form.cleaned_data.get("phone", ""),
+                subject=form.cleaned_data["subject"],
+                message=form.cleaned_data["message"],
+                submitted_by=request.user if request.user.is_authenticated else None,
             )
             messages.success(
                 request,

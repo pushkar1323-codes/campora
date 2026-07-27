@@ -1,13 +1,14 @@
 """
 Forms for the core (public website) app.
 
-ContactForm is intentionally a plain `forms.Form`, not a `ModelForm`.
-DATABASE_DESIGN.docx does not define a table for general contact messages
-(only Enquiry and Course), so this phase does not invent one. The form
-validates input and, on success, the view surfaces a confirmation message
-to the visitor. Persisting contact messages to the database (and/or
-emailing them to staff) can be added in a later phase if that becomes a
-requirement — see the note in views.py.
+ContactForm is a plain `forms.Form`, not a `ModelForm` -- kept
+deliberately decoupled from `core.models.ContactMessage` (added to fix
+the form previously discarding every submission after only logging it;
+see core/services.py::ContactService and core/views.py::contact) the
+same way EnquirySelfEditForm is kept decoupled from its own persistence
+details elsewhere in this project: the form validates raw input, and the
+view/service layer maps `cleaned_data` onto the model explicitly, rather
+than the form owning `save()` itself.
 """
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator

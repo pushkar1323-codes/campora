@@ -215,6 +215,18 @@ Implemented so far:
   fully read-only there -- Audit Logs enforce this at the model level
   too (immutable regardless of how they're accessed).
 
+- **Contact Message Persistence** (bugfix): the public "Contact Us" form
+  previously validated and logged every submission, then discarded it --
+  it appeared to succeed to the visitor but was never visible to any
+  administrator. Fixed with a real `core.ContactMessage` model and
+  `ContactService` (create/mark-read/mark-resolved/list/unread-count),
+  a dedicated Platform-Admin-only dashboard inbox
+  (`dashboard:contact_messages`, with status filtering and an unread
+  badge surfaced on the Platform Admin dashboard), and Campora Admin
+  Panel integration. Platform-level, not college-scoped -- College
+  Admin, College Staff, and Students cannot see it anywhere. Email
+  delivery remains a future enhancement.
+
 Planned (see `IMPLEMENTATION_PLAN.docx` for the full phase roadmap):
 CSV/Excel export, AWS deployment.
 

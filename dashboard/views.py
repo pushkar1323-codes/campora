@@ -49,6 +49,8 @@ from timeline.services import TimelineService
 from audit.models import AuditLog
 from audit.permissions import can_view_audit_logs
 from audit.services import AuditService
+from core.models import ContactMessage
+from core.services import ContactService
 from .forms import SORT_FIELD_MAP, EnquiryFilterForm, EnquiryUpdateForm
 
 logger = logging.getLogger(__name__)
@@ -130,6 +132,7 @@ def platform_dashboard(request):
         "recent_enquiries": recent_enquiries,
         "college_chart": college_chart,
         "status_chart": status_chart,
+        "contact_unread_count": ContactService.get_unread_count(),
     }
     return render(request, "dashboard/platform_dashboard.html", context)
 
@@ -1024,3 +1027,44 @@ def note_restore(request, pk):
         StaffNoteService.restore_note(note, restored_by=request.user)
         messages.success(request, "Note restored.")
     return redirect("dashboard:enquiry_detail", pk=owner.pk)
+
+
+@role_required(User.Role.SUPER_ADMIN)
+def contact_message_list(request):
+    """Platform-Admin-only inbox for public 'Contact Us' submissions
+    (fixes them previously being logged and discarded -- see
+    core/services.py::ContactService). College Admin/Staff/Students
+    never see this: these are platform-level messages, not tied to any
+    college.
+    """
+    status_filter = request.GET.get("status") or None
+    messages_qs = ContactService.get_messages(status=status_filter)
+
+    paginator = Paginator(messages_qs, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    context = {
+        "page_obj": page_obj,
+        "status_filter": status_filter,
+        "status_choices": ContactMessage.Status.choices,
+        "unread_count": ContactService.get_unread_count(),
+    }
+    return render(request, "dashboard/contact_messages.html", context)
+
+
+@role_required(User.Role.SUPER_ADMIN)
+def contact_message_mark_read(request, pk):
+    contact_message = get_object_or_404(ContactMessage, pk=pk)
+    if request.method == "POST":
+        ContactService.mark_read(contact_message, read_by=request.user)
+        messages.success(request, "Marked as read.")
+    return redirect("dashboard:contact_messages")
+
+
+@role_required(User.Role.SUPER_ADMIN)
+def contact_message_resolve(request, pk):
+    contact_message = get_object_or_404(ContactMessage, pk=pk)
+    if request.method == "POST":
+        ContactService.mark_resolved(contact_message, resolved_by=request.user)
+        messages.success(request, "Marked as resolved.")
+    return redirect("dashboard:contact_messages")

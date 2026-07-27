@@ -89,6 +89,7 @@ class CamporaAdminSite(admin.AdminSite):
                 ("Users", reverse("admin:accounts_user_changelist")),
                 ("Timeline", reverse("admin:timeline_timelineentry_changelist")),
                 ("Audit Logs", reverse("admin:audit_auditlog_changelist")),
+                ("Contact Messages", reverse("admin:core_contactmessage_changelist")),
                 ("Admin Action Log", reverse("admin:admin_logentry_changelist")),
             ]
         elif request.user.is_authenticated and request.user.role == User.Role.COLLEGE_ADMIN:
