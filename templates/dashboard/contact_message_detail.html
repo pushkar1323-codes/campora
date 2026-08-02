@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}{{ contact_message.subject }} - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="campora-heading mb-1">{{ contact_message.subject }}</h1>
+            <p class="text-muted mb-0">
+                {{ contact_message.full_name }} &lt;{{ contact_message.email }}&gt;
+                {% if contact_message.phone %}&middot; {{ contact_message.phone }}{% endif %}
+                {% if contact_message.submitted_by %}&middot; logged in as {{ contact_message.submitted_by.username }}{% endif %}
+                &middot; {{ contact_message.created_at|date:"M d, Y, g:i a" }}
+            </p>
+        </div>
+        <a href="{% url 'dashboard:contact_messages' %}" class="btn btn-outline-secondary">
+            <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+            Back to Inbox
+        </a>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Original Message</h5>
+                        <div style="white-space: pre-wrap;">{{ contact_message.message }}</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Replies</h5>
+                        {% if not contact_message.submitted_by %}
+                        <div class="alert alert-secondary small">
+                            <i data-lucide="info" style="width:14px;height:14px;"></i>
+                            This visitor submitted the form without an account, so a reply here is
+                            recorded but has no way to reach them yet. Email delivery is planned as a
+                            future enhancement.
+                        </div>
+                        {% endif %}
+                        {% include 'communication/_message_list.html' with edit_url_name='dashboard:message_edit' delete_url_name='dashboard:message_delete' %}
+                        {% include 'communication/_reply_form.html' %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="campora-heading mb-3">Status</h5>
+                        <span class="badge mb-3
+                            {% if contact_message.status == 'NEW' %}bg-danger
+                            {% elif contact_message.status == 'READ' %}bg-warning text-dark
+                            {% else %}bg-success{% endif %}">
+                            {{ contact_message.get_status_display }}
+                        </span>
+
+                        <div class="d-flex flex-column gap-2">
+                            {% if contact_message.status != 'RESOLVED' %}
+                            <form method="post" action="{% url 'dashboard:contact_message_resolve' contact_message.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{% url 'dashboard:contact_message_detail' contact_message.pk %}">
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i data-lucide="check" style="width:16px;height:16px;"></i>
+                                    Mark Resolved
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{% url 'dashboard:contact_message_reopen' contact_message.pk %}"
+                                  onsubmit="return confirm('Reopen this message? It will be marked Read again.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{% url 'dashboard:contact_message_detail' contact_message.pk %}">
+                                <button type="submit" class="btn btn-outline-warning w-100">
+                                    <i data-lucide="rotate-ccw" style="width:16px;height:16px;"></i>
+                                    Undo / Reopen
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+
+                        <hr>
+                        <div class="text-muted small">
+                            {% if contact_message.read_at %}
+                            <div class="mb-1">
+                                <i data-lucide="eye" style="width:12px;height:12px;"></i>
+                                Read by {% if contact_message.read_by %}{{ contact_message.read_by.get_full_name|default:contact_message.read_by.username }}{% else %}Unknown{% endif %}
+                                on {{ contact_message.read_at|date:"M d, Y, g:i a" }}
+                            </div>
+                            {% endif %}
+                            {% if contact_message.resolved_at %}
+                            <div class="mb-1">
+                                <i data-lucide="check-circle" style="width:12px;height:12px;"></i>
+                                Resolved by {% if contact_message.resolved_by %}{{ contact_message.resolved_by.get_full_name|default:contact_message.resolved_by.username }}{% else %}Unknown{% endif %}
+                                on {{ contact_message.resolved_at|date:"M d, Y, g:i a" }}
+                            </div>
+                            {% endif %}
+                            {% if contact_message.reopened_at %}
+                            <div class="mb-1">
+                                <i data-lucide="rotate-ccw" style="width:12px;height:12px;"></i>
+                                Reopened by {% if contact_message.reopened_by %}{{ contact_message.reopened_by.get_full_name|default:contact_message.reopened_by.username }}{% else %}Unknown{% endif %}
+                                on {{ contact_message.reopened_at|date:"M d, Y, g:i a" }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

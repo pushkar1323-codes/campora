@@ -45,7 +45,10 @@ urlpatterns = [
     path("notes/<int:pk>/delete/", views.note_delete, name="note_delete"),
     path("notes/<int:pk>/restore/", views.note_restore, name="note_restore"),
     path("contact-messages/", views.contact_message_list, name="contact_messages"),
+    path("contact-messages/<int:pk>/", views.contact_message_detail, name="contact_message_detail"),
+    path("contact-messages/<int:pk>/reply/", views.contact_message_reply, name="contact_message_reply"),
     path("contact-messages/<int:pk>/mark-read/", views.contact_message_mark_read, name="contact_message_mark_read"),
     path("contact-messages/<int:pk>/resolve/", views.contact_message_resolve, name="contact_message_resolve"),
+    path("contact-messages/<int:pk>/reopen/", views.contact_message_reopen, name="contact_message_reopen"),
     path("student/", views.student_dashboard, name="student"),
 ]

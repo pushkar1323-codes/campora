@@ -64,9 +64,28 @@ class ContactService:
         return contact_message
 
     @staticmethod
+    def reopen(contact_message, reopened_by):
+        """Undo an accidental 'Mark Resolved'. Reverts to READ, not NEW
+        -- the message has clearly already been seen/handled once, so
+        NEW would misrepresent it as never having been opened.
+        resolved_at/resolved_by are deliberately left untouched (kept as
+        a historical record of what happened, same reasoning as
+        staff_notes.StaffNoteService.restore_note's audit trail) --
+        reopened_at/reopened_by record the undo itself alongside them.
+        A no-op if the message isn't actually RESOLVED.
+        """
+        if contact_message.status != ContactMessage.Status.RESOLVED:
+            return contact_message
+        contact_message.status = ContactMessage.Status.READ
+        contact_message.reopened_at = timezone.now()
+        contact_message.reopened_by = reopened_by
+        contact_message.save(update_fields=["status", "reopened_at", "reopened_by"])
+        return contact_message
+
+    @staticmethod
     def get_messages(status=None):
         """Pagination-ready (unsliced) queryset, newest first (Model.Meta.ordering)."""
-        qs = ContactMessage.objects.select_related("submitted_by", "read_by", "resolved_by")
+        qs = ContactMessage.objects.select_related("submitted_by", "read_by", "resolved_by", "reopened_by")
         if status:
             qs = qs.filter(status=status)
         return qs

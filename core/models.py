@@ -46,6 +46,16 @@ class ContactMessage(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="contact_messages_resolved",
     )
+    reopened_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Set when a mistakenly-resolved message is reopened. resolved_at/resolved_by "
+                   "are deliberately NOT cleared when this happens -- kept as a historical record "
+                   "of what happened, same reasoning as staff_notes.StaffNote's restore fields.",
+    )
+    reopened_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="contact_messages_reopened",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 

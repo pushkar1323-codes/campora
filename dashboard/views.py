@@ -843,6 +843,22 @@ def enquiry_message_reply(request, pk):
     return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
 
 
+def _thread_owner_detail_url(owner):
+    """Communication is genuinely reused across more than one owner type
+    now (admissions.Enquiry since Phase 2A, core.ContactMessage since
+    this fix) -- this dispatches to the correct staff-facing detail page
+    for whichever type `owner` actually is, instead of assuming Enquiry
+    the way message_edit/message_delete originally did (a real bug this
+    fix corrects: editing/deleting a reply on a Contact Message's thread
+    used to redirect to `dashboard:enquiry_detail` with the
+    ContactMessage's own pk, which would 404 or, worse, silently load an
+    unrelated Enquiry that happened to share the same pk).
+    """
+    if isinstance(owner, ContactMessage):
+        return reverse("dashboard:contact_message_detail", args=[owner.pk])
+    return reverse("dashboard:enquiry_detail", args=[owner.pk])
+
+
 def _get_editable_message_for_staff(request, pk):
     """Shared lookup for message_edit/message_delete: college-scoped via
     the message's own enquiry (walked generically -- this view doesn't
@@ -879,7 +895,7 @@ def message_edit(request, pk):
         raise Http404("No message matches the given query.")
 
     owner = message.thread.content_object
-    cancel_url = reverse("dashboard:enquiry_detail", args=[owner.pk])
+    cancel_url = _thread_owner_detail_url(owner)
 
     if request.method == "POST":
         form = MessageEditForm(request.POST, instance=message)
@@ -907,7 +923,7 @@ def message_delete(request, pk):
     if request.method == "POST":
         CommunicationService.delete_message(message, deleted_by=request.user)
         messages.success(request, "Message deleted.")
-    return redirect("dashboard:enquiry_detail", pk=owner.pk)
+    return redirect(_thread_owner_detail_url(owner))
 
 
 @role_required(User.Role.SUPER_ADMIN, User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF)
@@ -1058,7 +1074,7 @@ def contact_message_mark_read(request, pk):
     if request.method == "POST":
         ContactService.mark_read(contact_message, read_by=request.user)
         messages.success(request, "Marked as read.")
-    return redirect("dashboard:contact_messages")
+    return redirect(request.POST.get("next") or "dashboard:contact_messages")
 
 
 @role_required(User.Role.SUPER_ADMIN)
@@ -1067,4 +1083,87 @@ def contact_message_resolve(request, pk):
     if request.method == "POST":
         ContactService.mark_resolved(contact_message, resolved_by=request.user)
         messages.success(request, "Marked as resolved.")
-    return redirect("dashboard:contact_messages")
+    return redirect(request.POST.get("next") or "dashboard:contact_messages")
+
+
+@role_required(User.Role.SUPER_ADMIN)
+def contact_message_reopen(request, pk):
+    """Undo an accidental 'Mark Resolved' -- see
+    core.services.ContactService.reopen for why this reverts to READ
+    (not NEW) and preserves resolved_at/resolved_by as history rather
+    than clearing them.
+    """
+    contact_message = get_object_or_404(ContactMessage, pk=pk)
+    if request.method == "POST":
+        ContactService.reopen(contact_message, reopened_by=request.user)
+        messages.success(request, "Reopened. Marked as Read again.")
+    return redirect(request.POST.get("next") or "dashboard:contact_messages")
+
+
+@role_required(User.Role.SUPER_ADMIN)
+def contact_message_detail(request, pk):
+    """Full view of one Contact Message plus its reply thread.
+
+    Replies reuse the existing, already-tested Communication System
+    (communication.services.CommunicationService) rather than a new
+    parallel mechanism -- ContactMessage is just another plain object
+    attached to a generic thread, exactly the reuse Communication was
+    built for (see communication/models.py's own module docstring:
+    "reusable by future modules... without redesign"). This view never
+    touches ContentType/GenericForeignKey itself, only passes the
+    ContactMessage instance to CommunicationService, same as every other
+    caller.
+
+    KNOWN LIMITATION: a reply here is recorded and visible to Platform
+    Admin, but the original visitor has nowhere to see it yet -- an
+    anonymous visitor has no account to show it in, and this fix doesn't
+    add a logged-in-sender-facing "my contact messages" view either.
+    Actually delivering the reply (email, or an in-app view for a
+    logged-in sender) remains future work, same as the previously-noted
+    email-delivery gap.
+    """
+    contact_message = get_object_or_404(
+        ContactMessage.objects.select_related("submitted_by", "read_by", "resolved_by", "reopened_by"),
+        pk=pk,
+    )
+    # Opening the detail page counts as having reviewed it.
+    ContactService.mark_read(contact_message, read_by=request.user)
+
+    if request.method == "POST":
+        form = MessageForm(request.POST)
+        if form.is_valid():
+            CommunicationService.post_message(
+                contact_message, sender=request.user, content=form.cleaned_data["content"],
+                sender_role=request.user.get_role_display(),
+            )
+            messages.success(request, "Reply sent.")
+            return redirect("dashboard:contact_message_detail", pk=contact_message.pk)
+        messages.error(request, "Message cannot be empty.")
+    else:
+        form = MessageForm()
+
+    context = {
+        "contact_message": contact_message,
+        "messages_list": CommunicationService.get_messages(contact_message),
+        "message_form": form,
+        "reply_url": reverse("dashboard:contact_message_reply", args=[contact_message.pk]),
+    }
+    return render(request, "dashboard/contact_message_detail.html", context)
+
+
+@role_required(User.Role.SUPER_ADMIN)
+def contact_message_reply(request, pk):
+    """POST-only reply endpoint used by the shared
+    communication/_reply_form.html partial on the detail page above."""
+    contact_message = get_object_or_404(ContactMessage, pk=pk)
+    if request.method == "POST":
+        form = MessageForm(request.POST)
+        if form.is_valid():
+            CommunicationService.post_message(
+                contact_message, sender=request.user, content=form.cleaned_data["content"],
+                sender_role=request.user.get_role_display(),
+            )
+            messages.success(request, "Reply sent.")
+        else:
+            messages.error(request, "Message cannot be empty.")
+    return redirect("dashboard:contact_message_detail", pk=contact_message.pk)
