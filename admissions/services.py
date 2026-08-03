@@ -29,10 +29,12 @@ needs to be refactored to make that possible.
 import logging
 
 from django.conf import settings
+from django.urls import reverse
 from django.utils import timezone
 
 from communication.models import Message
 from communication.services import CommunicationService
+from notifications.services import NotificationService
 from timeline.models import TimelineEntry
 from timeline.services import TimelineService
 from audit.models import AuditLog
@@ -167,6 +169,14 @@ def create_correction_request(enquiry, requested_by, reason, message="", request
         metadata={"correction_request_id": correction.pk},
         request=request,
     )
+    NotificationService.notify(
+        enquiry.submitted_by,
+        notification_type="CORRECTION_REQUESTED",
+        title="Correction Requested on Your Enquiry",
+        body=reason,
+        action_url=reverse("admissions:enquiry_self_edit", args=[enquiry.pk]),
+        obj=enquiry, college=enquiry.college,
+    )
     return correction
 
 
@@ -220,5 +230,13 @@ def resolve_correction_request(correction_request, resolved_by, request=None):
         new_values={"status": CorrectionRequest.Status.RESOLVED},
         metadata={"correction_request_id": correction_request.pk},
         request=request,
+    )
+    NotificationService.notify(
+        correction_request.enquiry.submitted_by,
+        notification_type="CORRECTION_RESOLVED",
+        title="Your Correction Was Resolved",
+        body=correction_request.reason,
+        action_url=reverse("admissions:enquiry_self_edit", args=[correction_request.enquiry.pk]),
+        obj=correction_request.enquiry, college=correction_request.enquiry.college,
     )
     return correction_request

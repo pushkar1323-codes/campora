@@ -51,6 +51,8 @@ from audit.permissions import can_view_audit_logs
 from audit.services import AuditService
 from core.models import ContactMessage
 from core.services import ContactService
+from notifications.models import Notification
+from notifications.services import NotificationService
 from .forms import SORT_FIELD_MAP, EnquiryFilterForm, EnquiryUpdateForm
 
 logger = logging.getLogger(__name__)
@@ -532,6 +534,7 @@ def enquiry_edit(request, pk):
                     snapshot_data={"full_name": enquiry.full_name, "course": enquiry.course.course_name},
                     request=request,
                 )
+                _notify_status_change(enquiry)
             messages.success(request, f"Enquiry #{enquiry.pk} ({enquiry.full_name}) updated successfully.")
             return redirect("dashboard:enquiry_detail", pk=enquiry.pk)
         messages.error(request, "Please correct the errors below and try again.")
@@ -599,6 +602,35 @@ def _log_status_change_timeline_event(enquiry, previous_status, actor):
         actor=actor, icon=icon,
         metadata={"previous_status": previous_status, "new_status": enquiry.status},
         college=enquiry.college,
+    )
+
+
+def _notify_status_change(enquiry):
+    """Notification Center counterpart to _log_status_change_timeline_event
+    above -- called from the same call site, right after it, so a status
+    change always produces both a Timeline entry and a Notification
+    together. A no-op if the enquiry has no linked account (an
+    anonymous/guest submission) since NotificationService.notify() itself
+    skips a falsy recipient.
+    """
+    specific = {
+        Enquiry.Status.ADMITTED: (
+            "Congratulations! Your Enquiry Was Admitted", Notification.Priority.HIGH,
+        ),
+        Enquiry.Status.REJECTED: (
+            "Update on Your Enquiry", Notification.Priority.HIGH,
+        ),
+    }.get(enquiry.status)
+    title, priority = specific or ("Your Enquiry Status Was Updated", Notification.Priority.NORMAL)
+
+    NotificationService.notify(
+        enquiry.submitted_by,
+        notification_type=f"ENQUIRY_{enquiry.status}",
+        title=title,
+        body=f"Status changed to {enquiry.get_status_display()} for {enquiry.course.course_name}.",
+        priority=priority,
+        action_url=reverse("admissions:enquiry_timeline", args=[enquiry.pk]),
+        obj=enquiry, college=enquiry.college,
     )
 
 
@@ -836,6 +868,18 @@ def enquiry_message_reply(request, pk):
                 title="Staff Replied",
                 actor=request.user, icon="message-square",
                 college=enquiry.college,
+            )
+            # Notification Center: notify the enquiry's owner, if any --
+            # notify() itself is a no-op for a None recipient, so an
+            # anonymous/guest enquiry (submitted_by=None) is handled
+            # automatically with no extra branch needed here.
+            NotificationService.notify(
+                enquiry.submitted_by,
+                notification_type="STAFF_REPLIED",
+                title="Staff Replied to Your Enquiry",
+                body=f"New reply on your enquiry for {enquiry.course.course_name}.",
+                action_url=reverse("admissions:enquiry_conversation", args=[enquiry.pk]),
+                obj=enquiry, college=enquiry.college,
             )
             messages.success(request, "Message sent.")
         else:

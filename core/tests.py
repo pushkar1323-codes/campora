@@ -172,7 +172,12 @@ class ContactMessageDashboardViewTests(TestCase):
         self.client.login(username="padmin", password="pass12345")
         response = self.client.get(reverse("dashboard:contact_messages") + "?status=NEW")
         self.assertContains(response, "Unread One")
-        self.assertNotContains(response, "Test Subject")
+        # Scoped to the filtered list's own card link, not the raw subject
+        # text -- the global navbar Notification Center bell (present on
+        # every page) can legitimately still show "Test Subject" via its
+        # own unread notification for self.msg, independent of whatever
+        # status filter is applied to this list. See notifications app.
+        self.assertNotContains(response, f'href="/dashboard/contact-messages/{self.msg.pk}/"')
 
     def test_platform_dashboard_shows_unread_badge(self):
         self.client.login(username="padmin", password="pass12345")

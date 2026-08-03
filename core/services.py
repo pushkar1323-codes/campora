@@ -7,6 +7,7 @@ and state-transition logic lives here.
 """
 import logging
 
+from django.urls import reverse
 from django.utils import timezone
 
 from .models import ContactMessage
@@ -33,6 +34,23 @@ class ContactService:
         logger.info(
             "Contact message #%s received from %s <%s>: %s",
             contact_message.pk, full_name, email, subject,
+        )
+        # Notification Center: every Platform Admin is notified -- Contact
+        # Messages are platform-level (not college-scoped), matching the
+        # existing Platform-Admin-only visibility of the inbox itself
+        # (dashboard.views.contact_message_list). Imported locally, not at
+        # module level, to avoid a needless import-time dependency on
+        # accounts for a code path (contact form submission) that runs on
+        # every anonymous page view.
+        from accounts.models import User
+        from notifications.services import NotificationService
+        NotificationService.notify_many(
+            User.objects.filter(role=User.Role.SUPER_ADMIN),
+            notification_type="CONTACT_MESSAGE_RECEIVED",
+            title="New Contact Message",
+            body=f"{full_name}: {subject}",
+            action_url=reverse("dashboard:contact_message_detail", args=[contact_message.pk]),
+            obj=contact_message,
         )
         return contact_message
 

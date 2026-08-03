@@ -28,6 +28,7 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('dashboard/', include('dashboard.urls')),
     path('admissions/', include('admissions.urls')),
+    path('notifications/', include('notifications.urls')),
     # courses URLs are wired in a later phase (Phase 12 - staff-side course
     # CRUD) as that app's own views are implemented (see IMPLEMENTATION_PLAN.docx).
 ]

@@ -33,6 +33,35 @@
                 </li>
                 {% endif %}
                 {% if request.user.is_authenticated %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link position-relative" href="#" id="notifBell" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications">
+                        <i data-lucide="bell" style="width:18px;height:18px;"></i>
+                        {% if nav_unread_count %}
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:0.6rem;">
+                            {{ nav_unread_count }}<span class="visually-hidden">unread notifications</span>
+                        </span>
+                        {% endif %}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end p-2" style="min-width:320px;max-height:420px;overflow-y:auto;" aria-labelledby="notifBell">
+                        {% if nav_recent_notifications %}
+                            {% for notification in nav_recent_notifications %}
+                            <li>
+                                <a class="dropdown-item small rounded-2 mb-1 {% if not notification.is_read %}fw-semibold bg-primary-subtle{% endif %}"
+                                   href="{% url 'notifications:mark_read' notification.pk %}" style="white-space:normal;">
+                                    <div>{{ notification.title }}</div>
+                                    {% if notification.body %}<div class="text-muted fw-normal">{{ notification.body|truncatechars:80 }}</div>{% endif %}
+                                    <div class="text-muted fw-normal" style="font-size:0.75rem;">{{ notification.created_at|timesince }} ago</div>
+                                </a>
+                            </li>
+                            {% endfor %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item small text-center" href="{% url 'notifications:list' %}">View All Notifications</a></li>
+                        {% else %}
+                            <li><span class="dropdown-item-text small text-muted">No notifications yet.</span></li>
+                        {% endif %}
+                    </ul>
+                </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'dashboard:home' %}">
                         <i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i>

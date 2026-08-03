@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Notifications - Campora{% endblock %}
+
+{% block content %}
+<section class="bg-section-light">
+    <div class="container py-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="campora-heading mb-1">Notifications</h1>
+            <p class="text-muted mb-0">
+                {% if nav_unread_count %}<span class="badge bg-danger rounded-pill">{{ nav_unread_count }} unread</span>{% else %}You're all caught up.{% endif %}
+            </p>
+        </div>
+        {% if nav_unread_count %}
+        <form method="post" action="{% url 'notifications:mark_all_read' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'notifications:list' %}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">Mark all read</button>
+        </form>
+        {% endif %}
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="card">
+            <div class="card-body">
+                {% if page_obj.object_list %}
+                <div class="d-flex flex-column gap-2">
+                    {% for notification in page_obj.object_list %}
+                    <a href="{% url 'notifications:mark_read' notification.pk %}"
+                       class="p-3 rounded-3 border text-decoration-none text-body
+                              {% if not notification.is_read %}border-primary-subtle bg-primary-subtle{% else %}border-secondary-subtle{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div class="fw-semibold">
+                                {% if notification.priority == 'HIGH' %}<i data-lucide="alert-circle" style="width:14px;height:14px;" class="text-danger"></i>{% endif %}
+                                {{ notification.title }}
+                            </div>
+                            <div class="text-muted small">{{ notification.created_at|timesince }} ago</div>
+                        </div>
+                        {% if notification.body %}
+                        <div class="text-muted small mt-1">{{ notification.body }}</div>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+
+                {% if page_obj.has_other_pages %}
+                <nav aria-label="Notifications pagination" class="mt-3">
+                    <ul class="pagination justify-content-center mb-0">
+                        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                            {% if page_obj.has_previous %}
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                            {% else %}
+                            <span class="page-link">Previous</span>
+                            {% endif %}
+                        </li>
+                        <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+                        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                            {% if page_obj.has_next %}
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                            {% else %}
+                            <span class="page-link">Next</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <div class="campora-empty-state">
+                    <i data-lucide="bell-off"></i>
+                    <p class="mb-0">No notifications yet.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <a href="{% url 'dashboard:home' %}" class="btn btn-outline-secondary mt-3">Back to Dashboard</a>
+    </div>
+</section>
+{% endblock %}

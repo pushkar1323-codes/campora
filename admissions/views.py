@@ -23,11 +23,13 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
+from accounts.models import User
 from communication import permissions as comm_permissions
 from communication.forms import MessageEditForm, MessageForm
 from communication.models import Message
 from communication.services import CommunicationService
 from courses.models import College, Course
+from notifications.services import NotificationService
 from timeline.models import TimelineEntry
 from timeline.services import TimelineService
 
@@ -90,6 +92,22 @@ def enquiry_create(request, course_id):
                 actor=enquiry.submitted_by,
                 icon="file-plus",
                 college=course.college,
+            )
+            # Notification Center: every College Staff/Admin at this
+            # enquiry's college is notified of a new submission — resolved
+            # via the college, not an "assigned staff" field (none exists
+            # on this model), so every staff member at the college can act
+            # on it. See notifications/models.py's module docstring.
+            NotificationService.notify_many(
+                User.objects.filter(
+                    role__in=[User.Role.COLLEGE_ADMIN, User.Role.COLLEGE_STAFF],
+                    staff_profile__college=course.college,
+                ),
+                notification_type="ENQUIRY_SUBMITTED",
+                title="New Enquiry Received",
+                body=f"{enquiry.full_name} enquired about {course.course_name}.",
+                action_url=reverse("dashboard:enquiry_detail", args=[enquiry.pk]),
+                obj=enquiry, college=course.college,
             )
             messages.success(
                 request,
@@ -162,6 +180,14 @@ def enquiry_self_edit(request, pk):
                     metadata={"correction_request_id": active_correction.pk},
                     college=enquiry.college,
                 )
+                NotificationService.notify(
+                    active_correction.requested_by,
+                    notification_type="CORRECTION_SUBMITTED",
+                    title="Student Submitted a Correction",
+                    body=f"{request.user.get_full_name() or request.user.username} updated Enquiry #{enquiry.pk}.",
+                    action_url=reverse("dashboard:enquiry_detail", args=[enquiry.pk]),
+                    obj=enquiry, college=enquiry.college,
+                )
             logger.info("Enquiry #%s self-edited by %s", enquiry.pk, request.user.username)
             messages.success(request, "Your enquiry has been updated.")
             return redirect("dashboard:student")
@@ -207,6 +233,25 @@ def enquiry_conversation(request, pk):
                 title="Student Replied",
                 actor=request.user, icon="message-square",
                 college=enquiry.college,
+            )
+            # Notification Center: notify whichever staff have already
+            # engaged with this enquiry (i.e. are active thread
+            # participants) — deliberately NOT every staff member at the
+            # college again, since ENQUIRY_SUBMITTED above already reached
+            # them; this targets whoever is actually following the
+            # conversation, the same "participant" concept
+            # communication/permissions.py already uses to decide who may
+            # view a thread at all.
+            staff_participants = CommunicationService.get_participants(
+                enquiry, active_only=True
+            ).exclude(user=request.user).select_related("user")
+            NotificationService.notify_many(
+                [participant.user for participant in staff_participants],
+                notification_type="STUDENT_REPLIED",
+                title="Student Replied",
+                body=f"{request.user.get_full_name() or request.user.username} replied on Enquiry #{enquiry.pk}.",
+                action_url=reverse("dashboard:enquiry_detail", args=[enquiry.pk]),
+                obj=enquiry, college=enquiry.college,
             )
             messages.success(request, "Message sent.")
             return redirect("admissions:enquiry_conversation", pk=enquiry.pk)
