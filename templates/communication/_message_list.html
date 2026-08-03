@@ -6,7 +6,13 @@ from both the staff (dashboard) and student (admissions) conversation
 views — no duplicated markup.
 
 Expected context:
-  messages_list  -- queryset/list of communication.Message (chronological)
+  messages_list      -- queryset/list of communication.Message (chronological)
+  unread_message_ids -- set of Message ids unread FOR THE CURRENT VIEWER
+                         specifically (communication.services.CommunicationService.
+                         get_unread_message_ids) -- NOT message.is_read, which is a
+                         thread-wide aggregate shared by every participant and would
+                         incorrectly show a message as already-read to a College Admin
+                         just because a College Staff member had opened it first.
   edit_url_name   -- e.g. "dashboard:message_edit" / "admissions:message_edit"
   delete_url_name -- e.g. "dashboard:message_delete" / "admissions:message_delete"
 {% endcomment %}
@@ -37,7 +43,7 @@ Expected context:
                 {% if message.is_edited %}&middot; edited{% endif %}
                 {% if not message.is_system_generated and message.sender_id == request.user.id %}
                     &middot; {% if message.is_read %}Read{% else %}Sent{% endif %}
-                {% elif message.sender_id != request.user.id and not message.is_read %}
+                {% elif message.sender_id != request.user.id and message.pk in unread_message_ids %}
                     &middot; <span class="badge bg-primary">Unread</span>
                 {% endif %}
             </div>

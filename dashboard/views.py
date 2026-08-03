@@ -472,6 +472,7 @@ def enquiry_detail(request, pk):
         "active_correction": get_active_correction_request(enquiry),
         "correction_form": CorrectionRequestForm(),
         "messages_list": CommunicationService.get_messages(enquiry),
+        "unread_message_ids": CommunicationService.get_unread_message_ids(enquiry, request.user),
         "message_form": MessageForm(),
         "reply_url": reverse("dashboard:enquiry_message_reply", args=[enquiry.pk]),
         "staff_notes": StaffNoteService.get_notes(enquiry, include_deleted=can_restore_notes),
@@ -803,6 +804,7 @@ def request_correction(request, pk):
         "active_correction": get_active_correction_request(enquiry),
         "correction_form": form,
         "messages_list": CommunicationService.get_messages(enquiry),
+        "unread_message_ids": CommunicationService.get_unread_message_ids(enquiry, request.user),
         "message_form": MessageForm(),
         "reply_url": reverse("dashboard:enquiry_message_reply", args=[enquiry.pk]),
         "staff_notes": StaffNoteService.get_notes(enquiry, include_deleted=can_restore_notes),
@@ -879,6 +881,29 @@ def enquiry_message_reply(request, pk):
                 title="Staff Replied to Your Enquiry",
                 body=f"New reply on your enquiry for {enquiry.course.course_name}.",
                 action_url=reverse("admissions:enquiry_conversation", args=[enquiry.pk]),
+                obj=enquiry, college=enquiry.college,
+            )
+            # Bugfix: this previously only notified the student -- any
+            # OTHER staff/admin already following this enquiry (i.e.
+            # active thread participants, the same concept used for the
+            # student-reply trigger in admissions.views.enquiry_conversation)
+            # never learned that a colleague had replied at all. Now
+            # symmetric with the student-reply trigger: every other
+            # active participant is notified too, excluding the sender
+            # AND the student (who was already notified above via the
+            # explicit call, with a more specific action_url -- without
+            # this second exclusion, a student who has also opened
+            # enquiry_conversation at least once (making them a thread
+            # participant like anyone else) would be double-notified).
+            other_participants = CommunicationService.get_participants(
+                enquiry, active_only=True
+            ).exclude(user=request.user).exclude(user=enquiry.submitted_by).select_related("user")
+            NotificationService.notify_many(
+                [participant.user for participant in other_participants],
+                notification_type="STAFF_REPLIED",
+                title="Staff Replied",
+                body=f"{request.user.get_full_name() or request.user.username} replied on Enquiry #{enquiry.pk}.",
+                action_url=reverse("dashboard:enquiry_detail", args=[enquiry.pk]),
                 obj=enquiry, college=enquiry.college,
             )
             messages.success(request, "Message sent.")
@@ -1170,8 +1195,19 @@ def contact_message_detail(request, pk):
         ContactMessage.objects.select_related("submitted_by", "read_by", "resolved_by", "reopened_by"),
         pk=pk,
     )
-    # Opening the detail page counts as having reviewed it.
+    # Opening the detail page counts as having reviewed it (ContactMessage's
+    # own NEW/READ/RESOLVED status, unrelated to the Communication thread
+    # below).
     ContactService.mark_read(contact_message, read_by=request.user)
+    # Bugfix: this view previously never called add_participant/
+    # mark_thread_read at all, unlike every other Communication caller
+    # (dashboard.enquiry_detail, admissions.enquiry_conversation) -- so a
+    # reply here never flipped is_read, and (before the per-viewer fix
+    # above) would have shown as permanently "Unread" to every Platform
+    # Admin, forever. Now consistent with the rest of the app: viewing
+    # this page marks the thread read for THIS Platform Admin specifically.
+    CommunicationService.add_participant(contact_message, request.user, role_label=request.user.get_role_display())
+    CommunicationService.mark_thread_read(contact_message, request.user)
 
     if request.method == "POST":
         form = MessageForm(request.POST)
@@ -1189,6 +1225,7 @@ def contact_message_detail(request, pk):
     context = {
         "contact_message": contact_message,
         "messages_list": CommunicationService.get_messages(contact_message),
+        "unread_message_ids": CommunicationService.get_unread_message_ids(contact_message, request.user),
         "message_form": form,
         "reply_url": reverse("dashboard:contact_message_reply", args=[contact_message.pk]),
     }

@@ -80,6 +80,20 @@ class ThreadParticipant(models.Model):
         help_text="False if this participant has been removed from the thread, without deleting the row.",
     )
     joined_at = models.DateTimeField(auto_now_add=True)
+    last_read_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When THIS participant last read the thread. Bugfix: Message.is_read/read_at "
+                   "(below) is a single flag shared by the whole thread -- correct for a "
+                   "2-party thread, but wrong the moment a third participant exists (e.g. "
+                   "Platform Admin + College Admin + College Staff all following one "
+                   "Enquiry): the first of them to open it silently marked the message read "
+                   "for the other two as well, even though they'd never seen it. Per-viewer "
+                   "'unread' is now always computed by comparing a message's created_at "
+                   "against the CURRENT viewer's own last_read_at here (see "
+                   "CommunicationService.get_unread_message_ids), never against the shared "
+                   "Message.is_read flag. NULL means this participant has never marked the "
+                   "thread read -- treated as 'everything not sent by them is unread'.",
+    )
 
     class Meta:
         constraints = [
@@ -130,7 +144,13 @@ class Message(models.Model):
     content = models.TextField()
     metadata = models.JSONField(default=dict, blank=True)
 
-    is_read = models.BooleanField(default=False)
+    is_read = models.BooleanField(
+        default=False,
+        help_text="Aggregate 'has at least one other participant read this yet' signal, used "
+                   "only for the sender's own Sent/Read receipt display. NOT per-viewer unread "
+                   "state -- see ThreadParticipant.last_read_at for that; a 3+-participant "
+                   "thread cannot be represented by a single thread-wide flag.",
+    )
     read_at = models.DateTimeField(null=True, blank=True)
 
     is_edited = models.BooleanField(default=False)

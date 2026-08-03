@@ -262,6 +262,7 @@ def enquiry_conversation(request, pk):
     context = {
         "enquiry": enquiry,
         "messages_list": CommunicationService.get_messages(enquiry),
+        "unread_message_ids": CommunicationService.get_unread_message_ids(enquiry, request.user),
         "message_form": form,
         "reply_url": reverse("admissions:enquiry_conversation", args=[enquiry.pk]),
     }

@@ -157,6 +157,69 @@ class CommunicationServiceReadStatusTests(TestCase):
         self.assertFalse(own_message.is_read)  # own message never auto-marked read
 
 
+class PerParticipantReadStateTests(TestCase):
+    """Bugfix regression: with 3+ thread participants (e.g. Platform Admin
+    + College Admin + College Staff all following one Enquiry), the first
+    of them to open the thread must NOT silently mark it read for the
+    other two as well. Message.is_read/read_at is now only an aggregate
+    sender-facing receipt; ThreadParticipant.last_read_at is the real
+    per-viewer source of truth (see CommunicationService.get_unread_message_ids).
+    """
+
+    def setUp(self):
+        self.college, self.course = _make_college_and_course()
+        self.student = User.objects.create_user(username="student1", password="pass12345", role=User.Role.STUDENT)
+        self.staff_a = User.objects.create_user(username="staffA", password="pass12345", role=User.Role.COLLEGE_STAFF)
+        self.staff_b = User.objects.create_user(username="staffB", password="pass12345", role=User.Role.COLLEGE_STAFF)
+
+    def test_one_participant_reading_does_not_mark_read_for_another(self):
+        CommunicationService.add_participant(self.course, self.staff_a, role_label="College Staff")
+        CommunicationService.add_participant(self.course, self.staff_b, role_label="College Staff")
+        message = CommunicationService.post_message(self.course, sender=self.student, content="Hi")
+
+        self.assertEqual(CommunicationService.get_unread_count(self.course, self.staff_a), 1)
+        self.assertEqual(CommunicationService.get_unread_count(self.course, self.staff_b), 1)
+
+        CommunicationService.mark_thread_read(self.course, self.staff_a)
+
+        # staff_a has now read it...
+        self.assertEqual(CommunicationService.get_unread_count(self.course, self.staff_a), 0)
+        # ...but staff_b, who never opened anything, must still see it unread.
+        self.assertEqual(CommunicationService.get_unread_count(self.course, self.staff_b), 1)
+        self.assertIn(message.pk, CommunicationService.get_unread_message_ids(self.course, self.staff_b))
+        self.assertNotIn(message.pk, CommunicationService.get_unread_message_ids(self.course, self.staff_a))
+
+    def test_message_is_read_flag_becomes_true_but_per_viewer_state_is_independent(self):
+        """The aggregate Message.is_read flag DOES flip to True once
+        anyone reads it (kept for the sender-facing Sent/Read receipt) --
+        but that must no longer be what a second, still-unread viewer's
+        badge is computed from."""
+        CommunicationService.add_participant(self.course, self.staff_a, role_label="College Staff")
+        CommunicationService.add_participant(self.course, self.staff_b, role_label="College Staff")
+        message = CommunicationService.post_message(self.course, sender=self.student, content="Hi")
+
+        CommunicationService.mark_thread_read(self.course, self.staff_a)
+        message.refresh_from_db()
+        self.assertTrue(message.is_read)  # aggregate flag flipped
+
+        # Despite is_read=True, staff_b (who never read it) must still see it as unread.
+        self.assertEqual(CommunicationService.get_unread_count(self.course, self.staff_b), 1)
+
+    def test_bulk_counts_are_also_per_viewer(self):
+        college2, course2 = _make_college_and_course(name="Other College 2", slug="other-college-2-comm-test")
+        CommunicationService.add_participant(self.course, self.staff_a, role_label="College Staff")
+        CommunicationService.add_participant(self.course, self.staff_b, role_label="College Staff")
+        CommunicationService.post_message(self.course, sender=self.student, content="Hi")
+
+        CommunicationService.mark_thread_read(self.course, self.staff_a)
+
+        from courses.models import Course as CourseModel
+        bulk_a = CommunicationService.get_unread_counts_bulk(CourseModel, [self.course.pk], self.staff_a)
+        bulk_b = CommunicationService.get_unread_counts_bulk(CourseModel, [self.course.pk], self.staff_b)
+        self.assertEqual(bulk_a.get(self.course.pk, 0), 0)
+        self.assertEqual(bulk_b.get(self.course.pk, 0), 1)
+
+
 class CommunicationPermissionsTests(TestCase):
     def setUp(self):
         self.college, self.course = _make_college_and_course()

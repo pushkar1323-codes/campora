@@ -24,7 +24,7 @@ the call sites shown in this phase's diagram:
     CorrectionRequest -> CommunicationService.post_system_message() -> (future) Event Publisher
 """
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import Message, MessageThread, ThreadParticipant
@@ -176,7 +176,21 @@ class CommunicationService:
     def mark_thread_read(obj, reader):
         """Feature 5: marks every not-yet-read message in `obj`'s thread
         that wasn't sent by `reader` (including sender-less system
-        messages) as read. Returns how many messages were updated.
+        messages) as read, AND -- the actual per-viewer fix -- records
+        `reader`'s own ThreadParticipant.last_read_at, which is what
+        get_unread_message_ids/get_unread_count now use to decide what's
+        unread FOR THIS READER SPECIFICALLY. Returns how many messages
+        were unread for this reader at the moment of the call.
+
+        Bugfix: previously this only bumped the thread-wide Message.is_read
+        flag, which meant the first of several participants (e.g. Platform
+        Admin + College Admin + College Staff all on one Enquiry) to open
+        the thread silently marked every message read for the other two as
+        well, even though they had never actually seen it. The is_read
+        bump below is kept (it now serves only the sender-facing aggregate
+        Sent/Read receipt -- see Message.is_read's own help_text), but it
+        is no longer what determines whether THIS reader sees an unread
+        badge -- last_read_at is.
 
         NOTE the NULL-sender subtlety: `.exclude(sender=reader)` alone
         would silently drop every system message (sender IS NULL) from
@@ -188,26 +202,60 @@ class CommunicationService:
         thread = CommunicationService.get_thread_for_object(obj)
         if thread is None:
             return 0
+
+        count = len(CommunicationService.get_unread_message_ids(obj, reader, thread=thread))
+
         unread = thread.messages.filter(is_deleted=False, is_read=False).filter(
             Q(sender__isnull=True) | ~Q(sender=reader)
         )
-        count = unread.count()
         unread.update(is_read=True, read_at=timezone.now())
+
+        # Defensive get_or_create: every current call site calls
+        # add_participant() first, so this row already exists in
+        # practice, but a future caller invoking mark_thread_read on its
+        # own shouldn't crash for it.
+        participant, _created = ThreadParticipant.objects.get_or_create(
+            thread=thread, user=reader, defaults={"is_active": True},
+        )
+        participant.last_read_at = timezone.now()
+        participant.save(update_fields=["last_read_at"])
         return count
 
     @staticmethod
-    def get_unread_count(obj, user):
-        """Reusable helper (architectural improvement #7) for future
-        dashboard badges: how many messages in `obj`'s thread are unread
-        from `user`'s point of view. Same NULL-sender handling as
-        mark_thread_read above.
+    def _last_read_at_for(thread, user):
+        """None if `user` has never read this thread (no participant row,
+        or one that's never called mark_thread_read) -- callers treat
+        None as 'everything not sent by them is unread'."""
+        participant = ThreadParticipant.objects.filter(thread=thread, user=user).first()
+        return participant.last_read_at if participant else None
+
+    @staticmethod
+    def get_unread_message_ids(obj, user, thread=None):
+        """The real per-viewer 'what's unread for THIS user' -- every
+        other reusable-module caller (templates, badges, counts) should
+        go through this (or get_unread_count/get_unread_counts_bulk
+        below), never Message.is_read directly, since is_read is a
+        thread-wide aggregate, not a per-viewer state. Returns a set of
+        message ids for cheap `pk in unread_ids` template checks.
         """
-        thread = CommunicationService.get_thread_for_object(obj)
+        thread = thread or CommunicationService.get_thread_for_object(obj)
         if thread is None:
-            return 0
-        return thread.messages.filter(is_deleted=False, is_read=False).filter(
-            Q(sender__isnull=True) | ~Q(sender=user)
-        ).count()
+            return set()
+        qs = thread.messages.filter(is_deleted=False).filter(Q(sender__isnull=True) | ~Q(sender=user))
+        last_read_at = CommunicationService._last_read_at_for(thread, user)
+        if last_read_at is not None:
+            qs = qs.filter(created_at__gt=last_read_at)
+        return set(qs.values_list("id", flat=True))
+
+    @staticmethod
+    def get_unread_count(obj, user):
+        """Reusable helper (architectural improvement #7) for dashboard
+        badges: how many messages in `obj`'s thread are unread from
+        `user`'s point of view specifically -- see
+        get_unread_message_ids's docstring for why this is no longer a
+        thread-wide Message.is_read count.
+        """
+        return len(CommunicationService.get_unread_message_ids(obj, user))
 
     @staticmethod
     def get_unread_counts_bulk(model_class, object_ids, user):
@@ -215,24 +263,42 @@ class CommunicationService:
         get_unread_count above. A paginated list of enquiries (or any
         other object type) showing an "unread" badge per row must NOT
         call get_unread_count() once per row -- that's exactly the N+1
-        pattern Feature 8 asks to avoid. This does it in a single query
-        for the whole page instead, returning {object_id: count}
-        (objects with no unread messages, or no thread at all, are simply
-        absent from the dict -- callers should default missing keys to 0).
+        pattern Feature 8 asks to avoid. This does it in two queries
+        total for the whole page (not per-row): one for `user`'s own
+        ThreadParticipant.last_read_at per relevant thread, one for every
+        candidate message -- then groups client-side, since each
+        thread's cutoff timestamp differs per user and can't be expressed
+        as a single shared WHERE clause the way the old thread-wide
+        is_read flag could. Objects with no unread messages, or no thread
+        at all, are simply absent from the returned dict -- callers
+        should default missing keys to 0.
         """
         if not object_ids:
             return {}
         content_type = ContentType.objects.get_for_model(model_class)
+
+        last_read_by_object_id = dict(
+            ThreadParticipant.objects.filter(
+                user=user, thread__content_type=content_type, thread__object_id__in=object_ids,
+            ).values_list("thread__object_id", "last_read_at")
+        )
+
         rows = (
             Message.objects.filter(
                 thread__content_type=content_type, thread__object_id__in=object_ids,
-                is_deleted=False, is_read=False,
+                is_deleted=False,
             )
             .filter(Q(sender__isnull=True) | ~Q(sender=user))
-            .values("thread__object_id")
-            .annotate(count=Count("id"))
+            .values_list("thread__object_id", "created_at")
         )
-        return {row["thread__object_id"]: row["count"] for row in rows}
+
+        counts = {}
+        for object_id, created_at in rows:
+            last_read_at = last_read_by_object_id.get(object_id)
+            if last_read_at is not None and created_at <= last_read_at:
+                continue
+            counts[object_id] = counts.get(object_id, 0) + 1
+        return counts
 
     # -- Reading messages -----------------------------------------------------
 

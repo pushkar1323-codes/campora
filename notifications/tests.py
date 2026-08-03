@@ -261,6 +261,50 @@ class NotificationTriggerIntegrationTests(TestCase):
         notification = Notification.objects.get(recipient=self.student, notification_type=f"ENQUIRY_{Enquiry.Status.ADMITTED}")
         self.assertEqual(notification.priority, Notification.Priority.HIGH)
 
+    def test_staff_reply_notifies_other_engaged_staff_participants_too(self):
+        """Bugfix: staff replying previously only notified the student --
+        another staff/admin already following the same enquiry (i.e. an
+        active thread participant, same concept enquiry_conversation
+        already used for student replies) never learned a colleague had
+        replied at all."""
+        enquiry = _make_enquiry(self.course, submitted_by=self.student)
+        other_staff = User.objects.create_user(username="staff2", password="pass12345", role=User.Role.COLLEGE_ADMIN, is_staff=True)
+        StaffProfile.objects.create(user=other_staff, college=self.college, designation="Admin")
+
+        # Both staff members, AND the student, must have engaged with the
+        # thread first to become participants (e.g. by viewing the
+        # respective detail/conversation page) -- the student's own
+        # participation here is what makes the double-notify guard below
+        # actually meaningful to test (otherwise the student simply
+        # wouldn't be in other_participants at all yet).
+        self.client.login(username="staff1", password="pass12345")
+        self.client.get(reverse("dashboard:enquiry_detail", args=[enquiry.pk]))
+        self.client.logout()
+        self.client.login(username="staff2", password="pass12345")
+        self.client.get(reverse("dashboard:enquiry_detail", args=[enquiry.pk]))
+        self.client.logout()
+        self.client.login(username="student1", password="pass12345")
+        self.client.get(reverse("admissions:enquiry_conversation", args=[enquiry.pk]))
+        self.client.logout()
+
+        # staff1 replies -- staff2 (a fellow participant) must be notified.
+        self.client.login(username="staff1", password="pass12345")
+        self.client.post(
+            reverse("dashboard:enquiry_message_reply", args=[enquiry.pk]), {"content": "Please review this."},
+        )
+        self.assertTrue(
+            Notification.objects.filter(recipient=other_staff, notification_type="STAFF_REPLIED").exists()
+        )
+        # The student is still notified too, exactly once (not double-notified
+        # via both the explicit call and the other_participants loop).
+        self.assertEqual(
+            Notification.objects.filter(recipient=self.student, notification_type="STAFF_REPLIED").count(), 1,
+        )
+        # staff1 (the sender) never notifies themselves.
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.staff, notification_type="STAFF_REPLIED").exists()
+        )
+
     def test_contact_message_notifies_platform_admins_only(self):
         platform_admin = User.objects.create_user(
             username="padmin", password="pass12345", role=User.Role.SUPER_ADMIN, is_staff=True, is_superuser=True,
